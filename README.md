@@ -1,8 +1,28 @@
-# cli-anything-harnesses
+# CLI Anything Harnesses
 
-收集由 cli-anything 为不同第三方项目生成并手工精修后的 harness。
+我维护并开源的 cli-anything harness 项目仓库，提供可独立分发、可直接安装的项目级命令行封装。
 
-## 目录说明
+## 项目概览
 
-- `harnesses/<name>/`：每个项目的 harness 副本
-- `INDEX.md`：项目索引
+| 名称 | 目录 | 简介 | 状态 | 文档 |
+|------|------|------|------|------|
+| cliproxyapi | `agent-harness/cliproxyapi` | CLIProxyAPI 的管理 CLI harness | 已发布到 PyPI | [README](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md) |
+
+## 快速入口
+
+- 项目索引：[`INDEX.md`](./INDEX.md)
+- cliproxyapi 使用文档：[`agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md`](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md)
+- cliproxyapi 设计说明：[`agent-harness/cliproxyapi/CLIPROXYAPI.md`](./agent-harness/cliproxyapi/CLIPROXYAPI.md)
+
+## 安装
+
+```bash
+pip install cli-anything-cliproxyapi
+```
+
+## 仓库结构
+
+- `agent-harness/<name>/`：单个项目的公开 harness 内容
+- `INDEX.md`：所有已开源 harness 的索引页
+
+更多能力、命令示例和使用细节请直接查看对应项目的 README。
