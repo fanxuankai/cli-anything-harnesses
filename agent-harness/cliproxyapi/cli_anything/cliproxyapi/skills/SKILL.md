@@ -146,24 +146,24 @@ cli-anything-cliproxyapi config save-connection --url http://127.0.0.1:8317 --ke
 
 ```bash
 # 检查服务器状态
-cli-anything-cliproxyapi --json server status
+cli-anything-cliproxyapi server status
 
 # 获取配置
-cli-anything-cliproxyapi --json config get
+cli-anything-cliproxyapi config get
 
 # 列出所有认证文件
-cli-anything-cliproxyapi --json auth list
+cli-anything-cliproxyapi auth list
 
 # 获取已启用 Codex 凭证额度
-cli-anything-cliproxyapi --json auth codex-quota
+cli-anything-cliproxyapi auth codex-quota
 
 # 发起 Claude OAuth 登录
-cli-anything-cliproxyapi --json oauth login anthropic
+cli-anything-cliproxyapi oauth login anthropic
 
 # 列出模型
-cli-anything-cliproxyapi --json --url http://localhost:8317 --key mgmt-key models aliases
+cli-anything-cliproxyapi --url http://localhost:8317 --key mgmt-key models aliases
 
 # 管理 API 密钥
-cli-anything-cliproxyapi --json keys add "new-api-key-123"
-cli-anything-cliproxyapi --json keys claude add --api-key "sk-ant-..."
+cli-anything-cliproxyapi keys add "new-api-key-123"
+cli-anything-cliproxyapi keys claude add --api-key "sk-ant-..."
 ```
