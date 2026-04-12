@@ -1,0 +1,15 @@
+.idea/
+.pytest_cache/
+.DS_Store
+**/*.egg-info/
+**/__pycache__/
+**/*.pyc
+
+# AGENTS
+.claude/
+.omc/
+.omx/
+
+# 本地同步脚本与元数据
+scripts/
+harnesses/*/source.json
