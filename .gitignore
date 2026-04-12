@@ -13,4 +13,4 @@ uv.lock
 
 # 本地同步脚本与元数据
 scripts/
-harnesses/*/source.json
+agent-harness/*/source.json
