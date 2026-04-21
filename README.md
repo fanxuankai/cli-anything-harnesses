@@ -21,6 +21,7 @@
 
 ```bash
 pip install cli-anything-cliproxyapi
+pip install cli-anything-mediasaber
 ```
 
 ## 仓库结构
