@@ -36,6 +36,20 @@ npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyap
 npx skills add fanxuankai/cli-anything-harnesses --skill ms-sub
 ```
 
+通过 Hermes 安装 skill：
+
+先在 `~/.hermes/.env` 中配置 GitHub Token：
+
+```env
+GITHUB_TOKEN=你的 Github PAT
+```
+
+然后执行安装命令：
+
+```bash
+hermes skills install fanxuankai/cli-anything-harnesses/skills/ms-sub --force
+```
+
 ## Entry Points
 
 当前可用的入口命令：
