@@ -13,11 +13,14 @@ dependencies:
 
 # cli-anything-mediasaber
 
-Media Saber 的近完整 CLI harness，用于连接真实 Media Saber REST API，覆盖系统管理、用户/密钥、站点、下载器、目录、云存储、种子搜索、订阅、消息、媒体服务器、豆瓣、OCR、Pansou、HDHive、AI，以及通用 API 调用。
+Media Saber 的近完整 CLI harness，用于连接真实 Media Saber REST
+API，覆盖系统管理、用户/密钥、站点、下载器、目录、云存储、种子搜索、订阅、消息、媒体服务器、豆瓣、OCR、Pansou、HDHive、AI，以及通用 API
+调用。
 
 ## 连接配置
 
-优先级：`--url/--token/--api-key/--source` > 环境变量 `MSB_URL/MSB_TOKEN/MSB_API_KEY/MSB_SOURCE` > `~/.mediasaber-cli.yaml` > 已保存 profile
+优先级：`--url/--token/--api-key/--source` > 环境变量 `MSB_URL/MSB_TOKEN/MSB_API_KEY/MSB_SOURCE` >
+`~/.mediasaber-cli.yaml` > 已保存 profile
 
 ```bash
 export MSB_URL=http://127.0.0.1:8899
@@ -32,53 +35,53 @@ cli-anything-mediasaber session set \
 
 ### session
 
-| 命令 | 说明 |
-|------|------|
-| `session show` | 查看当前连接状态、profile、撤销栈 |
-| `session set` | 更新本地连接参数 |
-| `session clear-token` | 清除本地 token |
-| `session save-profile NAME` | 保存当前会话为 profile |
-| `session use-profile NAME` | 应用 profile |
-| `session undo` | 撤销最近一次本地会话变更 |
-| `session redo` | 重做最近一次本地会话变更 |
+| 命令                          | 说明                   |
+|-----------------------------|----------------------|
+| `session show`              | 查看当前连接状态、profile、撤销栈 |
+| `session set`               | 更新本地连接参数             |
+| `session clear-token`       | 清除本地 token           |
+| `session save-profile NAME` | 保存当前会话为 profile      |
+| `session use-profile NAME`  | 应用 profile           |
+| `session undo`              | 撤销最近一次本地会话变更         |
+| `session redo`              | 重做最近一次本地会话变更         |
 
 ### server
 
-| 命令 | 说明 |
-|------|------|
-| `server ping` | 检查服务是否可达 |
-| `server start` | 用 `go run mediasaber.go` 启动真实后端 |
-| `server stop` | 停止由 harness 启动的后端 |
-| `server backend-status` | 查看本地进程状态 |
-| `server logs` | 查看本地包装日志 |
+| 命令                      | 说明                              |
+|-------------------------|---------------------------------|
+| `server ping`           | 检查服务是否可达                        |
+| `server start`          | 用 `go run mediasaber.go` 启动真实后端 |
+| `server stop`           | 停止由 harness 启动的后端               |
+| `server backend-status` | 查看本地进程状态                        |
+| `server logs`           | 查看本地包装日志                        |
 
 ### auth
 
-| 命令 | 说明 |
-|------|------|
-| `auth init-admin` | 查询是否已初始化管理员 |
-| `auth login USER PASSWORD` | 登录并保存 token |
-| `auth whoami` | 获取当前用户信息 |
-| `auth logout` | 退出登录并清除本地 token |
-| `auth tokens` | 获取当前用户 token 列表 |
+| 命令                         | 说明              |
+|----------------------------|-----------------|
+| `auth init-admin`          | 查询是否已初始化管理员     |
+| `auth login USER PASSWORD` | 登录并保存 token     |
+| `auth whoami`              | 获取当前用户信息        |
+| `auth logout`              | 退出登录并清除本地 token |
+| `auth tokens`              | 获取当前用户 token 列表 |
 
 ### system
 
-| 命令 | 说明 |
-|------|------|
-| `system status` | 查看 CPU / 内存 / goroutine 状态 |
-| `system space` | 查询空间信息 |
-| `system basic-config` | 获取完整基础配置 |
-| `system basic-config-part KEY...` | 获取部分基础配置 |
-| `system task-schedule` | 查看定时任务列表 |
-| `system upgrade-version` | 查询升级信息 |
-| `system path-ls PATH` | 浏览服务端路径 |
-| `system tmdb-languages` | 查询 TMDB 语言 |
-| `system command-menus` | 查询命令菜单 |
-| `system gen-aes-key` | 生成 AES 密钥 |
-| `system flag` | 查询系统标记 |
-| `system hash-report-statistic*` | 查询 hash 报表 |
-| `system upload --file PATH` | 上传文件到后端临时目录 |
+| 命令                                | 说明                         |
+|-----------------------------------|----------------------------|
+| `system status`                   | 查看 CPU / 内存 / goroutine 状态 |
+| `system space`                    | 查询空间信息                     |
+| `system basic-config`             | 获取完整基础配置                   |
+| `system basic-config-part KEY...` | 获取部分基础配置                   |
+| `system task-schedule`            | 查看定时任务列表                   |
+| `system upgrade-version`          | 查询升级信息                     |
+| `system path-ls PATH`             | 浏览服务端路径                    |
+| `system tmdb-languages`           | 查询 TMDB 语言                 |
+| `system command-menus`            | 查询命令菜单                     |
+| `system gen-aes-key`              | 生成 AES 密钥                  |
+| `system flag`                     | 查询系统标记                     |
+| `system hash-report-statistic*`   | 查询 hash 报表                 |
+| `system upload --file PATH`       | 上传文件到后端临时目录                |
 
 ### 扩展资源组
 
@@ -152,67 +155,69 @@ cli-anything-mediasaber session set \
 
 ### downloader / directory
 
-| 命令 | 说明 |
-|------|------|
-| `downloader list` | 列出下载器 |
-| `downloader detail ID` | 查看下载器详情 |
-| `downloader types` | 获取下载器类型 |
-| `downloader delete-qb-tags` | 删除 qb 标签 |
-| `downloader save/delete/set-default/test` | 下载器配置与测试 |
-| `directory list` | 查询目录列表 |
-| `directory match` | 根据 `tmdbId/mediaType` 匹配目录 |
-| `directory tags` | 列出目录标签 |
-| `directory mkdir ID` | 为指定目录记录创建目录 |
-| `directory categories` | 查询目录分类 |
-| `directory subcategory-options` | 查询子分类选项 |
-| `directory subcategory-list` | 查询子分类列表 |
-| `directory save/copy-from-tag/order/delete` | 目录管理操作 |
+| 命令                                          | 说明                         |
+|---------------------------------------------|----------------------------|
+| `downloader list`                           | 列出下载器                      |
+| `downloader detail ID`                      | 查看下载器详情                    |
+| `downloader types`                          | 获取下载器类型                    |
+| `downloader delete-qb-tags`                 | 删除 qb 标签                   |
+| `downloader save/delete/set-default/test`   | 下载器配置与测试                   |
+| `directory list`                            | 查询目录列表                     |
+| `directory match`                           | 根据 `tmdbId/mediaType` 匹配目录 |
+| `directory tags`                            | 列出目录标签                     |
+| `directory mkdir ID`                        | 为指定目录记录创建目录                |
+| `directory categories`                      | 查询目录分类                     |
+| `directory subcategory-options`             | 查询子分类选项                    |
+| `directory subcategory-list`                | 查询子分类列表                    |
+| `directory save/copy-from-tag/order/delete` | 目录管理操作                     |
 
 ### site / media / cloud / torrent / message / ai
 
-| 命令 | 说明 |
-|------|------|
-| `site list` | 列出站点 |
-| `site options` | 获取站点选项 |
-| `site rss ID` | 获取站点 RSS |
-| `site rss-torrents ID` | 获取 RSS 种子 |
-| `site save/page/order/switch/test/update-configs/meta/...` | 站点管理扩展操作 |
-| `media sources` | 获取媒体来源 |
-| `media search KEYWORD` | 媒体搜索 |
-| `media search-all KEYWORD` | 聚合媒体搜索 |
-| `media autosuggest QUERY` | 自动补全 |
-| `media detail/douban-details/season-episodes/...` | 媒体详情与刷新扩展操作 |
-| `cloud-storage list/page/get/save/...` | 云存储与挂载管理 |
-| `cloud-storage strm302 -o FILE` | 下载/保存原始内容响应 |
-| `torrent download-url/analysis` | 种子分析与下载链接 |
-| `torrent-search *` | 种子搜索与任务管理 |
-| `subscribe *` | 订阅、默认配置、订阅日历 |
-| `message send/open-send/interactive` | 消息发送 |
-| `message-channel *` | 渠道配置管理 |
-| `service-ocr test/captcha-ocr` | OCR 相关能力 |
-| `pansou search` | Pansou 搜索 |
-| `hdhive resources/unlock` | HDHive 资源与解锁 |
-| `ai models` | 原始 AI 模型列表 |
-| `ai completions --body/--body-file` | 原始 AI chat completions |
+| 命令                                                         | 说明                     |
+|------------------------------------------------------------|------------------------|
+| `site list`                                                | 列出站点                   |
+| `site options`                                             | 获取站点选项                 |
+| `site rss ID`                                              | 获取站点 RSS               |
+| `site rss-torrents ID`                                     | 获取 RSS 种子              |
+| `site save/page/order/switch/test/update-configs/meta/...` | 站点管理扩展操作               |
+| `media sources`                                            | 获取媒体来源                 |
+| `media search KEYWORD`                                     | 媒体搜索                   |
+| `media search-all KEYWORD`                                 | 聚合媒体搜索                 |
+| `media autosuggest QUERY`                                  | 自动补全                   |
+| `media detail/douban-details/season-episodes/...`          | 媒体详情与刷新扩展操作            |
+| `cloud-storage list/page/get/save/...`                     | 云存储与挂载管理               |
+| `cloud-storage strm302 -o FILE`                            | 下载/保存原始内容响应            |
+| `torrent download-url/analysis`                            | 种子分析与下载链接              |
+| `torrent-search *`                                         | 种子搜索与任务管理              |
+| `subscribe *`                                              | 订阅、默认配置、订阅日历           |
+| `message send/open-send/interactive`                       | 消息发送                   |
+| `message-channel *`                                        | 渠道配置管理                 |
+| `service-ocr test/captcha-ocr`                             | OCR 相关能力               |
+| `pansou search`                                            | Pansou 搜索              |
+| `hdhive resources/unlock`                                  | HDHive 资源与解锁           |
+| `ai models`                                                | 原始 AI 模型列表             |
+| `ai completions --body/--body-file`                        | 原始 AI chat completions |
 
 ### api
 
-| 命令 | 说明 |
-|------|------|
+| 命令                | 说明                                        |
+|-------------------|-------------------------------------------|
 | `api METHOD PATH` | 通用 REST 调用，可带 query/header/form/file/body |
 
 ## 全局选项
 
-| 选项 | 说明 |
-|------|------|
-| `--url` | 服务地址 |
-| `--token` | 用户 token |
-| `--api-key` | 用户 apiKey |
-| `--source` | Media Saber 源码目录 |
-| `--profile` | 加载本地 profile |
-| `--json` | JSON 输出 |
-| `--raw` | 尽量返回未解包响应 |
-| `--repl` | 进入交互式 REPL |
+| 选项          | 说明               |
+|-------------|------------------|
+| `--url`     | 服务地址             |
+| `--token`   | 用户 token         |
+| `--api-key` | 用户 apiKey        |
+| `--source`  | Media Saber 源码目录 |
+| `--profile` | 加载本地 profile     |
+| `--json`    | JSON 输出          |
+| `--raw`     | 尽量返回未解包响应        |
+| `--repl`    | 进入交互式 REPL       |
+| `--version` | 版本信息             |
+| `--help`    | 帮助信息             |
 
 ## Agent 使用示例
 
