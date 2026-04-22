@@ -10,6 +10,12 @@ description: 当用户想通过自然语言为 Media Saber 订阅电影或电视
 通过本地 `cli-anything-ms` CLI 处理电影和电视剧订阅请求。
 始终先搜索 TMDB，再检查是否已订阅，只有在未订阅时才调用 `subscribe add`。
 
+## 安装
+
+```bash
+pip install cli-anything-ms
+```
+
 ## 工作流
 
 ### 步骤 1：拆分订阅意图
