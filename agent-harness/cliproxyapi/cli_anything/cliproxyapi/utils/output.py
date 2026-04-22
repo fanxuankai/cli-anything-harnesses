@@ -16,7 +16,8 @@ error_console = Console(stderr=True)
 
 def output_json(data: Any) -> None:
     """输出 JSON 格式。"""
-    console.print(json.dumps(data, indent=2, ensure_ascii=False))
+    console.file.write(json.dumps(data, indent=2, ensure_ascii=False))
+    console.file.write("\n")
 
 
 def output_result(data: Any, json_mode: bool = False) -> None:
