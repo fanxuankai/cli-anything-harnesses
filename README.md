@@ -23,6 +23,13 @@ pip install cli-anything-cliproxyapi
 pip install cli-anything-mediasaber
 ```
 
+如果你是通过 `skills` 工作流安装这两个 skill：
+
+```bash
+npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyapi -g -y
+npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-mediasaber -g -y
+```
+
 如果是本地开发：
 
 ```bash
