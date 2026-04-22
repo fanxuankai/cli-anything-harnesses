@@ -9,9 +9,10 @@ agent / workflow 直接调用。
 
 当前仓库包含这些已实现的 harness：
 
-| Harness                    | Version | Docs                                                                     | Design notes                                                 |
-|----------------------------|---------|--------------------------------------------------------------------------|--------------------------------------------------------------|
-| `cli-anything-cliproxyapi` | `1.0.0` | [README](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md) | [CLIPROXYAPI.md](./agent-harness/cliproxyapi/CLIPROXYAPI.md) |
+| Harness                    | Version | Docs                                                                     |
+|----------------------------|---------|--------------------------------------------------------------------------|
+| `cli-anything-cliproxyapi` | `1.0.0` | [README](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md) |
+| `cli-anything-ms`          | `0.1.0` | [README](./agent-harness/ms/cli_anything/ms/README.md)                   |
 
 ## Quick Start
 
@@ -19,6 +20,7 @@ agent / workflow 直接调用。
 
 ```bash
 pip install cli-anything-cliproxyapi
+pip install cli-anything-ms
 ```
 
 浏览所有 skills：
@@ -31,6 +33,7 @@ npx skills add fanxuankai/cli-anything-harnesses --list
 
 ```bash
 npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyapi
+npx skills add fanxuankai/cli-anything-harnesses --skill ms-sub
 ```
 
 ## Entry Points
@@ -39,6 +42,7 @@ npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyap
 
 ```bash
 cli-anything-cliproxyapi --help
+cli-anything-ms --help
 ```
 
 ## Index
