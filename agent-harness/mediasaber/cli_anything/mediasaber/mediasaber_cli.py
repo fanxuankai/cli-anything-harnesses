@@ -4,11 +4,12 @@ import json
 import shlex
 import sys
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 import click
 
 from .core.auth import AuthManager
+from .core.cli_specs import CommandSpec, EXISTING_GROUP_SPECS, GroupSpec, NEW_GROUP_SPECS, ParamSpec
 from .core.client import APIError, ConnectionConfig, MediaSaberClient
 from .core.config import ConfigManager
 from .core.downloader import DownloaderManager
@@ -16,7 +17,8 @@ from .core.media import MediaManager
 from .core.site import SiteManager
 from .core.system import SystemManager
 from .utils.backend import BackendManager
-from .utils.output import fail, output_result, read_body_text
+from .utils.output import fail, output_result
+from .utils.request_helpers import parse_file_pairs, parse_key_value_pairs, read_json_payload
 
 
 @dataclass
@@ -84,18 +86,7 @@ pass_ctx = click.make_pass_decorator(Context, ensure=True)
 
 
 def _handle_error(ctx: Context, exc: Exception) -> None:
-    message = str(exc)
-    fail(message, json_mode=ctx.json_mode)
-
-
-def _parse_kv_pairs(items: tuple[str, ...]) -> dict[str, str]:
-    payload = {}
-    for item in items:
-        if "=" not in item:
-            raise click.ClickException(f"invalid key=value pair: {item}")
-        key, value = item.split("=", 1)
-        payload[key] = value
-    return payload
+    fail(str(exc), json_mode=ctx.json_mode)
 
 
 def _enter_repl(ctx: Context) -> None:
@@ -126,6 +117,147 @@ def _enter_repl(ctx: Context) -> None:
             _handle_error(ctx, exc)
 
 
+def _normalize_value(value: Any) -> Any:
+    if isinstance(value, tuple):
+        return list(value)
+    return value
+
+
+def _is_missing(value: Any) -> bool:
+    return value is None or value == () or value == []
+
+
+def _apply_option(fn, spec: ParamSpec):
+    option_kwargs: dict[str, Any] = {
+        "required": spec.required,
+        "multiple": spec.multiple,
+        "help": spec.help,
+    }
+    if spec.is_flag:
+        option_kwargs["is_flag"] = True
+    else:
+        option_kwargs["type"] = spec.click_type
+    if spec.default is not None:
+        option_kwargs["default"] = spec.default
+    return click.option(*spec.flags, spec.key, **option_kwargs)(fn)
+
+
+def _build_payload_parts(spec: CommandSpec, kwargs: dict[str, Any]) -> tuple[str, dict[str, Any] | None, Any | None, dict[str, Any] | None]:
+    path_values: dict[str, str] = {}
+    params: dict[str, Any] = {}
+    body_fields: dict[str, Any] = {}
+    files: dict[str, Any] = {}
+    handles = []
+    try:
+        for param in spec.args + spec.options:
+            value = kwargs.pop(param.key, None)
+            if _is_missing(value):
+                continue
+            value = _normalize_value(value)
+            if param.target == "path":
+                path_values[param.field_name] = str(value)
+            elif param.target == "query":
+                params[param.field_name] = value
+            elif param.target == "body":
+                body_fields[param.field_name] = value
+            elif param.target == "file":
+                handle = open(value, "rb")
+                handles.append(handle)
+                files[param.field_name] = handle
+
+        extra_query = kwargs.pop("query_pairs", ())
+        if extra_query:
+            params.update(parse_key_value_pairs(extra_query))
+
+        body = kwargs.pop("body", None)
+        body_file = kwargs.pop("body_file", None)
+        json_body = None
+        if spec.body_mode == "json":
+            raw_json = read_json_payload(body, body_file)
+            if raw_json is not None and body_fields:
+                if not isinstance(raw_json, dict):
+                    raise click.ClickException("explicit body fields require JSON object payload")
+                json_body = {**raw_json, **body_fields}
+            elif raw_json is not None:
+                json_body = raw_json
+            elif body_fields:
+                json_body = body_fields
+        elif body or body_file:
+            raise click.ClickException("this command does not accept --body or --body-file")
+
+        path = spec.path.format(**path_values)
+        return path, params or None, json_body, files or None
+    except Exception:
+        for handle in handles:
+            handle.close()
+        raise
+
+
+def _close_files(files: dict[str, Any] | None) -> None:
+    if not files:
+        return
+    for handle in files.values():
+        try:
+            handle.close()
+        except Exception:
+            pass
+
+
+def _make_spec_command(spec: CommandSpec):
+    @pass_ctx
+    def command(ctx: Context, **kwargs):
+        files = None
+        try:
+            timeout = kwargs.pop("timeout", spec.timeout)
+            output_path = kwargs.pop("output_path", None)
+            path, params, json_body, files = _build_payload_parts(spec, kwargs)
+            result = ctx.client.request_result(
+                spec.method,
+                path,
+                response_mode=spec.response_mode,
+                unwrap_envelope=spec.unwrap_envelope and not ctx.raw_mode,
+                params=params,
+                json_data=json_body,
+                files=files,
+                public=spec.public,
+                timeout=timeout,
+                output_path=output_path,
+                allow_redirects=spec.response_mode != "redirect",
+            )
+            output_result(result, json_mode=ctx.json_mode)
+        except Exception as exc:
+            _handle_error(ctx, exc)
+        finally:
+            _close_files(files)
+
+    decorated = command
+    if spec.allow_query_pairs:
+        decorated = click.option("--query", "query_pairs", multiple=True, help="额外 query 参数，格式 key=value")(decorated)
+    if spec.body_mode == "json":
+        decorated = click.option("--body-file", type=click.Path(exists=True), help="从文件读取 JSON body")(decorated)
+        decorated = click.option("--body", help="JSON 字符串 body")(decorated)
+    if spec.supports_output:
+        decorated = click.option("-o", "--output", "output_path", type=click.Path(), help="保存响应到文件")(decorated)
+    decorated = click.option("--timeout", default=spec.timeout, show_default=True, type=int, help="请求超时秒数")(decorated)
+    for option in reversed(spec.options):
+        decorated = _apply_option(decorated, option)
+    for argument in reversed(spec.args):
+        decorated = click.argument(argument.key, type=argument.click_type)(decorated)
+    return click.command(spec.name)(decorated)
+
+
+def _register_group_specs(root_group, group_obj_map: dict[str, click.Group]):
+    for group_spec in EXISTING_GROUP_SPECS:
+        target = group_obj_map[group_spec.existing_group]
+        for command_spec in group_spec.commands:
+            target.add_command(_make_spec_command(command_spec))
+    for group_spec in NEW_GROUP_SPECS:
+        new_group = click.Group(name=group_spec.name, help=group_spec.help)
+        for command_spec in group_spec.commands:
+            new_group.add_command(_make_spec_command(command_spec))
+        root_group.add_command(new_group)
+
+
 @click.group(invoke_without_command=True)
 @click.option("--url", help="Media Saber 服务地址")
 @click.option("--token", help="用户 token")
@@ -133,7 +265,7 @@ def _enter_repl(ctx: Context) -> None:
 @click.option("--source", "source_path", help="Media Saber 源码目录")
 @click.option("--profile", help="加载本地 profile")
 @click.option("--json", "json_mode", is_flag=True, help="JSON 输出")
-@click.option("--raw", "raw_mode", is_flag=True, help="api 命令输出完整响应 envelope")
+@click.option("--raw", "raw_mode", is_flag=True, help="尽量返回未解包响应")
 @click.option("--repl", "repl_mode", is_flag=True, help="进入 REPL")
 @click.version_option(version="1.0.0", prog_name="cli-anything-mediasaber")
 @click.pass_context
@@ -273,9 +405,8 @@ def server_ping(ctx: Context):
 @click.option("--config-file", help="传给 mediasaber.go 的配置文件")
 @pass_ctx
 def server_start(ctx: Context, config_file):
-    manager = BackendManager()
     try:
-        result = manager.start(ctx.conn.source_path, config_file=config_file)
+        result = BackendManager().start(ctx.conn.source_path, config_file=config_file)
         output_result(result, json_mode=ctx.json_mode)
     except Exception as exc:
         _handle_error(ctx, exc)
@@ -339,8 +470,7 @@ def auth_login(ctx: Context, user_name, password, device_type, device_name, back
         if not no_save:
             ctx.config_mgr.update_state(token=token)
             ctx.refresh()
-        result = {"token": token, "saved": not no_save}
-        output_result(result, json_mode=ctx.json_mode)
+        output_result({"token": token, "saved": not no_save}, json_mode=ctx.json_mode)
     except Exception as exc:
         _handle_error(ctx, exc)
 
@@ -674,40 +804,104 @@ def media_autosuggest(ctx: Context, query):
         _handle_error(ctx, exc)
 
 
+@main.group(name="ai")
+@pass_ctx
+def ai_group(ctx: Context):
+    """AI 能力。"""
+
+
+@ai_group.command("models")
+@click.option("--timeout", default=30, show_default=True, type=int)
+@pass_ctx
+def ai_models(ctx: Context, timeout):
+    try:
+        result = ctx.client.request_result("GET", "/ai/v1/models", response_mode="json", unwrap_envelope=False, timeout=timeout)
+        output_result(result, json_mode=ctx.json_mode)
+    except Exception as exc:
+        _handle_error(ctx, exc)
+
+
+@ai_group.command("completions")
+@click.option("--body", help="JSON 字符串 body")
+@click.option("--body-file", type=click.Path(exists=True), help="从文件读取 JSON body")
+@click.option("--timeout", default=300, show_default=True, type=int)
+@pass_ctx
+def ai_completions(ctx: Context, body, body_file, timeout):
+    try:
+        payload = read_json_payload(body, body_file)
+        result = ctx.client.request_result(
+            "POST",
+            "/ai/v1/chat/completions",
+            response_mode="json",
+            unwrap_envelope=False,
+            json_data=payload,
+            timeout=timeout,
+        )
+        output_result(result, json_mode=ctx.json_mode)
+    except Exception as exc:
+        _handle_error(ctx, exc)
+
+
 @main.command("api")
 @click.argument("method", type=click.Choice(["GET", "POST", "PUT", "PATCH", "DELETE"], case_sensitive=False))
 @click.argument("path")
 @click.option("--public", is_flag=True, help="不带认证头")
 @click.option("--query", "query_pairs", multiple=True, help="query 参数，格式 key=value")
+@click.option("--header", "header_pairs", multiple=True, help="请求头，格式 key=value")
+@click.option("--form", "form_pairs", multiple=True, help="表单字段，格式 key=value")
+@click.option("--file", "file_pairs", multiple=True, help="上传文件，格式 field=/path/to/file")
 @click.option("--body", help="JSON 字符串 body")
 @click.option("--body-file", type=click.Path(exists=True), help="从文件读取 JSON body")
+@click.option("--response-mode", type=click.Choice(["auto", "json", "text", "content", "redirect"]), default="auto", show_default=True)
+@click.option("-o", "--output", "output_path", type=click.Path(), help="保存响应到文件")
+@click.option("--timeout", default=30, show_default=True, type=int)
 @pass_ctx
-def api_call(ctx: Context, method, path, public, query_pairs, body, body_file):
+def api_call(ctx: Context, method, path, public, query_pairs, header_pairs, form_pairs, file_pairs, body, body_file, response_mode, output_path, timeout):
+    files = None
     try:
-        params = _parse_kv_pairs(query_pairs) if query_pairs else None
-        raw_body = read_body_text(body, body_file)
-        json_body = json.loads(raw_body) if raw_body else None
-        if ctx.raw_mode:
-            result = ctx.client.request_envelope(
-                method,
-                path,
-                params=params,
-                json_data=json_body,
-                public=public,
-            )
-        else:
-            result = ctx.client.request_data(
-                method,
-                path,
-                params=params,
-                json_data=json_body,
-                public=public,
-            )
+        params = parse_key_value_pairs(query_pairs) if query_pairs else None
+        headers = parse_key_value_pairs(header_pairs) if header_pairs else None
+        raw_body = read_json_payload(body, body_file)
+        form_data = parse_key_value_pairs(form_pairs) if form_pairs else None
+        file_map = parse_file_pairs(file_pairs) if file_pairs else None
+        if raw_body is not None and form_data:
+            raise click.ClickException("use JSON body or form fields, not both")
+        if file_map and raw_body is not None:
+            raise click.ClickException("file upload cannot be combined with JSON body")
+        if file_map:
+            files = {field: open(file_path, "rb") for field, file_path in file_map.items()}
+        result = ctx.client.request_result(
+            method,
+            path,
+            response_mode=response_mode,
+            unwrap_envelope=not ctx.raw_mode,
+            params=params,
+            json_data=raw_body,
+            data=form_data,
+            files=files,
+            headers=headers,
+            public=public,
+            timeout=timeout,
+            output_path=output_path,
+            allow_redirects=response_mode != "redirect",
+        )
         output_result(result, json_mode=ctx.json_mode)
-    except APIError as exc:
-        _handle_error(ctx, exc)
     except Exception as exc:
         _handle_error(ctx, exc)
+    finally:
+        _close_files(files)
+
+
+_register_group_specs(
+    main,
+    {
+        "system": system,
+        "downloader": downloader,
+        "directory": directory,
+        "site": site,
+        "media": media,
+    },
+)
 
 
 if __name__ == "__main__":

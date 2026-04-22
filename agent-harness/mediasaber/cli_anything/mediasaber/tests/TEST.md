@@ -6,8 +6,9 @@
 
 - connection resolution and URL normalization
 - config persistence plus undo/redo session state
-- response envelope parsing and error handling
+- response envelope parsing, raw JSON parsing, and binary output writing
 - manager endpoint mapping for auth/system/downloader/media
+- dynamic command registration and representative argument mapping
 
 These tests use mocks only and do not require a running Media Saber instance.
 
@@ -22,6 +23,10 @@ Validated workflows:
 - authenticated `whoami`
 - system status
 - downloader listing
+- cloud-storage, torrent, subscribe, message, service-ocr, pansou, hdhive smoke commands
+- raw AI models/completions commands
+- multipart upload command
+- binary output command
 - generic API passthrough
 - session set / undo / redo
 

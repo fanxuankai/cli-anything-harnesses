@@ -34,6 +34,13 @@ class MockHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _bytes(self, payload: bytes, status=200, content_type="application/octet-stream"):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
     def _require_auth(self) -> bool:
         return self.headers.get("Authorization") == self.token or self.headers.get("apiKey") == "apikey-1"
 
@@ -54,8 +61,26 @@ class MockHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/v1/downloader/list":
             self._json({"code": 20000, "message": "ok", "data": [{"id": 1, "name": "qb"}]})
             return
+        if parsed.path == "/api/v1/cloudStorage/list":
+            self._json({"code": 20000, "message": "ok", "data": [{"id": 1, "mount_path": "/cloud"}]})
+            return
+        if parsed.path == "/api/v1/torrent/downloadUrl/1":
+            self._json({"code": 20000, "message": "ok", "data": "https://download.example/file.torrent"})
+            return
+        if parsed.path == "/api/v1/subscribe/page":
+            self._json({"code": 20000, "message": "ok", "data": {"pageNum": 1, "pageSize": 20, "total": 1, "list": [{"id": 1}]}})
+            return
         if parsed.path == "/api/v1/site/options":
             self._json({"code": 20000, "message": "ok", "data": [{"value": 1, "text": "MTeam"}]})
+            return
+        if parsed.path == "/api/v1/pansou/search":
+            self._json({"code": 20000, "message": "ok", "data": {"pageNum": 1, "pageSize": 20, "total": 1, "list": [{"name": "andor"}]}})
+            return
+        if parsed.path == "/api/v1/hdhive/resources":
+            self._json({"code": 20000, "message": "ok", "data": [{"slug": "resource-1"}]})
+            return
+        if parsed.path == "/ai/v1/models":
+            self._json([{"id": "ms-ai-1"}])
             return
         if parsed.path == "/api/v1/media/search":
             params = parse_qs(parsed.query)
@@ -68,14 +93,17 @@ class MockHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+        if parsed.path == "/api/v1/cloudStorage/strm302":
+            self._bytes(b"stream-content")
+            return
         self._json({"code": 40400, "message": f"unknown path {parsed.path}", "data": None}, status=404)
 
     def do_POST(self):  # noqa: N802
         parsed = urlparse(self.path)
         length = int(self.headers.get("Content-Length", "0"))
-        body = self.rfile.read(length).decode("utf-8") if length else ""
-        payload = json.loads(body or "{}")
+        body = self.rfile.read(length) if length else b""
         if parsed.path == "/api/v1/user/login":
+            payload = json.loads(body.decode("utf-8") or "{}")
             if payload.get("userName") == "admin" and payload.get("password") == "secret":
                 self._json({"code": 20000, "message": "ok", "data": self.token})
             else:
@@ -84,8 +112,22 @@ class MockHandler(BaseHTTPRequestHandler):
         if not self._require_auth():
             self._json({"code": 40000, "message": "login required", "data": None})
             return
+        if parsed.path == "/api/v1/system/upload":
+            assert b'filename="upload.txt"' in body
+            self._json({"code": 20000, "message": "ok", "data": "/tmp/upload.txt"})
+            return
         if parsed.path == "/api/v1/path/ls":
+            payload = json.loads(body.decode("utf-8") or "{}")
             self._json({"code": 20000, "message": "ok", "data": [{"path": payload.get("path"), "isDir": True}]})
+            return
+        if parsed.path == "/api/v1/message/send":
+            self._json({"code": 20000, "message": "ok", "data": None})
+            return
+        if parsed.path == "/api/v1/service/ocr/test":
+            self._json({"code": 20000, "message": "ok", "data": {"result": "ok"}})
+            return
+        if parsed.path == "/ai/v1/chat/completions":
+            self._json({"id": "chatcmpl-1", "choices": [{"message": {"role": "assistant", "content": "pong"}}]})
             return
         self._json({"code": 40400, "message": f"unknown path {parsed.path}", "data": None}, status=404)
 
@@ -142,6 +184,33 @@ def test_subprocess_workflow():
             assert result.returncode == 0, result.stderr
             assert json.loads(result.stdout)[0]["name"] == "qb"
 
+            result = _cli(tmp_home, "--json", "--url", base_url, "cloud-storage", "list")
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout)[0]["mount_path"] == "/cloud"
+
+            result = _cli(tmp_home, "--json", "--url", base_url, "torrent", "download-url", "1")
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout) == "https://download.example/file.torrent"
+
+            result = _cli(tmp_home, "--json", "--url", base_url, "subscribe", "page")
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout)["total"] == 1
+
+            result = _cli(tmp_home, "--json", "--url", base_url, "message", "send", "--body", '{"title":"hi","content":"hello"}')
+            assert result.returncode == 0, result.stderr
+
+            result = _cli(tmp_home, "--json", "--url", base_url, "service-ocr", "test", "--body", '{"url":"https://example.com/captcha.png"}')
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout)["result"] == "ok"
+
+            result = _cli(tmp_home, "--json", "--url", base_url, "pansou", "search", "--keyword", "andor")
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout)["list"][0]["name"] == "andor"
+
+            result = _cli(tmp_home, "--json", "--url", base_url, "hdhive", "resources", "--tmdb-id", "1", "--media-type", "movie")
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout)[0]["slug"] == "resource-1"
+
             result = _cli(tmp_home, "--json", "--url", base_url, "api", "GET", "/api/v1/site/options")
             assert result.returncode == 0, result.stderr
             assert json.loads(result.stdout)[0]["text"] == "MTeam"
@@ -161,5 +230,35 @@ def test_subprocess_workflow():
             result = _cli(tmp_home, "--json", "--url", base_url, "media", "search", "andor")
             assert result.returncode == 0, result.stderr
             assert json.loads(result.stdout)["list"][0]["title"] == "andor"
+
+            result = _cli(tmp_home, "--json", "--url", base_url, "ai", "models")
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout)[0]["id"] == "ms-ai-1"
+
+            result = _cli(tmp_home, "--json", "--url", base_url, "ai", "completions", "--body", '{"model":"ms-ai-1","messages":[{"role":"user","content":"ping"}]}')
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout)["choices"][0]["message"]["content"] == "pong"
+
+            upload_path = Path(tmp_home) / "upload.txt"
+            upload_path.write_text("hello", encoding="utf-8")
+            result = _cli(tmp_home, "--json", "--url", base_url, "system", "upload", "--file", str(upload_path))
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout) == "/tmp/upload.txt"
+
+            output_path = Path(tmp_home) / "stream.bin"
+            result = _cli(
+                tmp_home,
+                "--json",
+                "--url",
+                base_url,
+                "cloud-storage",
+                "strm302",
+                "--path",
+                "/video.mkv",
+                "--output",
+                str(output_path),
+            )
+            assert result.returncode == 0, result.stderr
+            assert output_path.read_bytes() == b"stream-content"
     finally:
         server.shutdown()

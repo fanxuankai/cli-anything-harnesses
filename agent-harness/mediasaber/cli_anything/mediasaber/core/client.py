@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 import requests
 
 from .config import ConfigManager
+from ..utils.request_helpers import write_output_file
 
 
 class APIError(RuntimeError):
@@ -42,18 +43,10 @@ class ConnectionConfig:
         config = config_mgr.load()
         profile_data = config.profiles.get(profile, {}) if profile else {}
         return cls(
-            url=normalize_base_url(
-                url
-                or os.getenv("MSB_URL")
-                or profile_data.get("url")
-                or config.url
-            ),
+            url=normalize_base_url(url or os.getenv("MSB_URL") or profile_data.get("url") or config.url),
             token=token or os.getenv("MSB_TOKEN") or profile_data.get("token") or config.token,
             api_key=api_key or os.getenv("MSB_API_KEY") or profile_data.get("api_key") or config.api_key,
-            source_path=source_path
-            or os.getenv("MSB_SOURCE")
-            or profile_data.get("source_path")
-            or config.source_path,
+            source_path=source_path or os.getenv("MSB_SOURCE") or profile_data.get("source_path") or config.source_path,
         )
 
     @property
@@ -111,9 +104,12 @@ class MediaSaberClient:
         params: dict[str, Any] | None = None,
         json_data: Any | None = None,
         data: Any | None = None,
+        files: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         public: bool = False,
         timeout: int = 30,
+        allow_redirects: bool = True,
+        stream: bool = False,
     ) -> requests.Response:
         response = self.session.request(
             method=method.upper(),
@@ -121,13 +117,16 @@ class MediaSaberClient:
             params=params,
             json=json_data,
             data=data,
+            files=files,
             headers=self._headers(public=public, extra=headers),
             timeout=timeout,
+            allow_redirects=allow_redirects,
+            stream=stream,
         )
         response.raise_for_status()
         return response
 
-    def request_envelope(
+    def request_json(
         self,
         method: str,
         path: str,
@@ -135,6 +134,116 @@ class MediaSaberClient:
         params: dict[str, Any] | None = None,
         json_data: Any | None = None,
         data: Any | None = None,
+        files: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        public: bool = False,
+        timeout: int = 30,
+        allow_redirects: bool = True,
+        unwrap_envelope: bool = True,
+    ) -> Any:
+        response = self.request(
+            method,
+            path,
+            params=params,
+            json_data=json_data,
+            data=data,
+            files=files,
+            headers=headers,
+            public=public,
+            timeout=timeout,
+            allow_redirects=allow_redirects,
+        )
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise APIError(f"non-json response from {path}") from exc
+        if unwrap_envelope and isinstance(payload, dict) and {"code", "message"}.issubset(payload.keys()):
+            code = payload.get("code")
+            if code is not None and code != 20000:
+                raise APIError(payload.get("message") or f"request failed with code {code}")
+            return payload.get("data")
+        return payload
+
+    def request_text(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_data: Any | None = None,
+        data: Any | None = None,
+        files: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        public: bool = False,
+        timeout: int = 30,
+        allow_redirects: bool = True,
+        output_path: str | None = None,
+    ) -> Any:
+        response = self.request(
+            method,
+            path,
+            params=params,
+            json_data=json_data,
+            data=data,
+            files=files,
+            headers=headers,
+            public=public,
+            timeout=timeout,
+            allow_redirects=allow_redirects,
+        )
+        if output_path:
+            meta = write_output_file(output_path, response.content)
+            meta["content_type"] = response.headers.get("Content-Type")
+            return meta
+        return response.text
+
+    def request_content(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_data: Any | None = None,
+        data: Any | None = None,
+        files: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        public: bool = False,
+        timeout: int = 30,
+        allow_redirects: bool = True,
+        output_path: str | None = None,
+    ) -> Any:
+        response = self.request(
+            method,
+            path,
+            params=params,
+            json_data=json_data,
+            data=data,
+            files=files,
+            headers=headers,
+            public=public,
+            timeout=timeout,
+            allow_redirects=allow_redirects,
+            stream=bool(output_path),
+        )
+        content = response.content
+        if output_path:
+            meta = write_output_file(output_path, content)
+            meta["content_type"] = response.headers.get("Content-Type")
+            return meta
+        return {
+            "status_code": response.status_code,
+            "content_type": response.headers.get("Content-Type"),
+            "bytes": len(content),
+            "body": response.text if response.text else "",
+        }
+
+    def request_redirect(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         public: bool = False,
         timeout: int = 30,
     ) -> dict[str, Any]:
@@ -142,21 +251,113 @@ class MediaSaberClient:
             method,
             path,
             params=params,
-            json_data=json_data,
-            data=data,
+            headers=headers,
             public=public,
             timeout=timeout,
+            allow_redirects=False,
         )
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise APIError(f"non-json response from {path}") from exc
-        if not isinstance(payload, dict):
-            raise APIError(f"unexpected response shape from {path}")
-        code = payload.get("code")
-        if code is not None and code != 20000:
-            raise APIError(payload.get("message") or f"request failed with code {code}")
-        return payload
+        return {
+            "status_code": response.status_code,
+            "location": response.headers.get("Location"),
+        }
+
+    def request_result(
+        self,
+        method: str,
+        path: str,
+        *,
+        response_mode: str = "auto",
+        unwrap_envelope: bool = True,
+        params: dict[str, Any] | None = None,
+        json_data: Any | None = None,
+        data: Any | None = None,
+        files: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        public: bool = False,
+        timeout: int = 30,
+        output_path: str | None = None,
+        allow_redirects: bool = True,
+    ) -> Any:
+        if response_mode == "json":
+            return self.request_json(
+                method,
+                path,
+                params=params,
+                json_data=json_data,
+                data=data,
+                files=files,
+                headers=headers,
+                public=public,
+                timeout=timeout,
+                allow_redirects=allow_redirects,
+                unwrap_envelope=unwrap_envelope,
+            )
+        if response_mode == "text":
+            return self.request_text(
+                method,
+                path,
+                params=params,
+                json_data=json_data,
+                data=data,
+                files=files,
+                headers=headers,
+                public=public,
+                timeout=timeout,
+                allow_redirects=allow_redirects,
+                output_path=output_path,
+            )
+        if response_mode == "content":
+            return self.request_content(
+                method,
+                path,
+                params=params,
+                json_data=json_data,
+                data=data,
+                files=files,
+                headers=headers,
+                public=public,
+                timeout=timeout,
+                allow_redirects=allow_redirects,
+                output_path=output_path,
+            )
+        if response_mode == "redirect":
+            return self.request_redirect(
+                method,
+                path,
+                params=params,
+                headers=headers,
+                public=public,
+                timeout=timeout,
+            )
+        response = self.request(
+            method,
+            path,
+            params=params,
+            json_data=json_data,
+            data=data,
+            files=files,
+            headers=headers,
+            public=public,
+            timeout=timeout,
+            allow_redirects=allow_redirects,
+        )
+        content_type = response.headers.get("Content-Type", "")
+        if "application/json" in content_type or "text/json" in content_type:
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise APIError(f"non-json response from {path}") from exc
+            if unwrap_envelope and isinstance(payload, dict) and {"code", "message"}.issubset(payload.keys()):
+                code = payload.get("code")
+                if code is not None and code != 20000:
+                    raise APIError(payload.get("message") or f"request failed with code {code}")
+                return payload.get("data")
+            return payload
+        if output_path:
+            meta = write_output_file(output_path, response.content)
+            meta["content_type"] = content_type
+            return meta
+        return response.text
 
     def request_data(
         self,
@@ -166,19 +367,21 @@ class MediaSaberClient:
         params: dict[str, Any] | None = None,
         json_data: Any | None = None,
         data: Any | None = None,
+        files: dict[str, Any] | None = None,
         public: bool = False,
         timeout: int = 30,
     ) -> Any:
-        payload = self.request_envelope(
+        return self.request_json(
             method,
             path,
             params=params,
             json_data=json_data,
             data=data,
+            files=files,
             public=public,
             timeout=timeout,
+            unwrap_envelope=True,
         )
-        return payload.get("data")
 
     def ping(self) -> Any:
         return self.request_data("GET", "/api/v1/user/initAdminStatus", public=True)

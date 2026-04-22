@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from typing import Any
 
 import click
@@ -48,11 +47,3 @@ def output_error(message: str, *, json_mode: bool = False) -> None:
 def fail(message: str, *, json_mode: bool = False, code: int = 1) -> None:
     output_error(message, json_mode=json_mode)
     raise SystemExit(code)
-
-
-def read_body_text(body: str | None, body_file: str | None) -> str | None:
-    if body and body_file:
-        raise click.ClickException("use either --body or --body-file, not both")
-    if body_file:
-        return open(body_file, "r", encoding="utf-8").read()
-    return body
