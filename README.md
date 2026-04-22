@@ -12,14 +12,13 @@ agent / workflow 直接调用。
 | Harness                    | Version | Docs                                                                     | Design notes                                                 |
 |----------------------------|---------|--------------------------------------------------------------------------|--------------------------------------------------------------|
 | `cli-anything-cliproxyapi` | `1.0.0` | [README](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md) | [CLIPROXYAPI.md](./agent-harness/cliproxyapi/CLIPROXYAPI.md) |
-| `cli-anything-mediasaber`  | `1.0.2` | [README](./agent-harness/mediasaber/cli_anything/mediasaber/README.md)   | [MEDIASABER.md](./agent-harness/mediasaber/MEDIASABER.md)    |
 
 ## Quick Start
 
 安装 harness：
 
 ```bash
-pip install cli-anything-mediasaber
+pip install cli-anything-cliproxyapi
 ```
 
 浏览所有 skills：
@@ -31,7 +30,7 @@ npx skills add fanxuankai/cli-anything-harnesses --list
 安装 skill：
 
 ```bash
-npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-mediasaber
+npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyapi
 ```
 
 ## Entry Points
@@ -39,7 +38,7 @@ npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-mediasaber
 当前可用的入口命令：
 
 ```bash
-cli-anything-mediasaber --help
+cli-anything-cliproxyapi --help
 ```
 
 ## Index
