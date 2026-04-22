@@ -4,17 +4,19 @@
 
 ## 项目概览
 
-| 名称 | 目录 | 简介 | 状态 | 文档 |
-|------|------|------|------|------|
-| cliproxyapi | `agent-harness/cliproxyapi` | CLIProxyAPI 的管理 CLI harness | 已发布到 PyPI | [README](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md) |
-| mediasaber | `agent-harness/mediasaber` | Media Saber 的管理与运维 CLI harness | 本地开发中 | [README](./agent-harness/mediasaber/cli_anything/mediasaber/README.md) |
+| 名称          | 目录                          | 简介                             | 状态        | 文档                                                                       |
+|-------------|-----------------------------|--------------------------------|-----------|--------------------------------------------------------------------------|
+| cliproxyapi | `agent-harness/cliproxyapi` | CLIProxyAPI 的管理 CLI harness    | 已发布到 PyPI | [README](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md) |
+| mediasaber  | `agent-harness/mediasaber`  | Media Saber 的管理与运维 CLI harness | 已发布到 PyPI | [README](./agent-harness/mediasaber/cli_anything/mediasaber/README.md)   |
 
 ## 快速入口
 
 - 项目索引：[`INDEX.md`](./INDEX.md)
-- cliproxyapi 使用文档：[`agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md`](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md)
+- cliproxyapi 使用文档：[
+  `agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md`](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md)
 - cliproxyapi 设计说明：[`agent-harness/cliproxyapi/CLIPROXYAPI.md`](./agent-harness/cliproxyapi/CLIPROXYAPI.md)
-- mediasaber 使用文档：[`agent-harness/mediasaber/cli_anything/mediasaber/README.md`](./agent-harness/mediasaber/cli_anything/mediasaber/README.md)
+- mediasaber 使用文档：[
+  `agent-harness/mediasaber/cli_anything/mediasaber/README.md`](./agent-harness/mediasaber/cli_anything/mediasaber/README.md)
 - mediasaber 设计说明：[`agent-harness/mediasaber/MEDIASABER.md`](./agent-harness/mediasaber/MEDIASABER.md)
 
 ## 安装
