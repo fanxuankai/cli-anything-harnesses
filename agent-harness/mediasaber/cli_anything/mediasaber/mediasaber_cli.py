@@ -267,7 +267,7 @@ def _register_group_specs(root_group, group_obj_map: dict[str, click.Group]):
 @click.option("--json", "json_mode", is_flag=True, help="JSON 输出")
 @click.option("--raw", "raw_mode", is_flag=True, help="尽量返回未解包响应")
 @click.option("--repl", "repl_mode", is_flag=True, help="进入 REPL")
-@click.version_option(version="1.0.1", prog_name="cli-anything-mediasaber")
+@click.version_option(version="1.0.2", prog_name="cli-anything-mediasaber")
 @click.pass_context
 def main(click_ctx, url, token, api_key, source_path, profile, json_mode, raw_mode, repl_mode):
     """Media Saber CLI harness。"""

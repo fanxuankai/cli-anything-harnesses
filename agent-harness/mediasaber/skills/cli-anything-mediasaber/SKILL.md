@@ -1,6 +1,6 @@
 ---
 name: cli-anything-mediasaber
-version: 1.0.1
+version: 1.0.2
 description: CLI harness for near-complete Media Saber management and operations
 entry_point: cli-anything-mediasaber
 install: pip install cli-anything-mediasaber
