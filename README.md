@@ -9,10 +9,10 @@ agent / workflow 直接调用。
 
 当前仓库包含这些已实现的 harness：
 
-| Harness       | Version | Docs                                                                     | Design notes                                                 |
-|---------------|---------|--------------------------------------------------------------------------|--------------------------------------------------------------|
-| `cliproxyapi` | `1.0.0` | [README](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md) | [CLIPROXYAPI.md](./agent-harness/cliproxyapi/CLIPROXYAPI.md) |
-| `mediasaber`  | `1.0.2` | [README](./agent-harness/mediasaber/cli_anything/mediasaber/README.md)   | [MEDIASABER.md](./agent-harness/mediasaber/MEDIASABER.md)    |
+| Harness                    | Version | Docs                                                                     | Design notes                                                 |
+|----------------------------|---------|--------------------------------------------------------------------------|--------------------------------------------------------------|
+| `cli-anything-cliproxyapi` | `1.0.0` | [README](./agent-harness/cliproxyapi/cli_anything/cliproxyapi/README.md) | [CLIPROXYAPI.md](./agent-harness/cliproxyapi/CLIPROXYAPI.md) |
+| `cli-anything-mediasaber`  | `1.0.2` | [README](./agent-harness/mediasaber/cli_anything/mediasaber/README.md)   | [MEDIASABER.md](./agent-harness/mediasaber/MEDIASABER.md)    |
 
 ## Quick Start
 
