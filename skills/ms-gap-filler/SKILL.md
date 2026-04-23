@@ -15,8 +15,6 @@ description: 检查 Media Saber 里的电视剧漏集，或者想把漏集电视
 pip install cli-anything-ms
 ```
 
-不要在技能里自动安装。
-
 ## 触发场景
 
 - `查漏集`
