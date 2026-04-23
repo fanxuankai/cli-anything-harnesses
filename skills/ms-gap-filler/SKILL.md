@@ -45,7 +45,7 @@ cli-anything-ms --json media-server miss-episodes-check
 - `episodes[].season`
 - `episodes[].missEpisodes`
 
-只保留 `tv` 漏集结果，按返回原始顺序处理，不要重排。
+按返回原始顺序处理，不要重排。
 
 ### 步骤 2：汇总漏集结果
 
