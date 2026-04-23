@@ -2,7 +2,7 @@
 
 Media Saber 后端的最小可用 CLI harness。
 
-当前提供稳定连接层，以及显式业务命令 `media search`、`plugin call` 和 `subscribe add`。
+当前提供稳定连接层，以及显式业务命令 `media search`、`media-server miss-episodes-check`、`plugin call` 和 `subscribe add`。
 
 ## 安装
 
@@ -58,6 +58,20 @@ JSON 输出：
 
 ```bash
 cli-anything-ms --json media search --source tmdb --keyword Interstellar
+```
+
+## 媒体服务
+
+检查媒体服务中的电视剧漏集：
+
+```bash
+cli-anything-ms media-server miss-episodes-check
+```
+
+JSON 输出：
+
+```bash
+cli-anything-ms --json media-server miss-episodes-check
 ```
 
 ## 订阅新增
@@ -124,6 +138,7 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `config save-connection`
 - `config show-connection`
 - `media search`
+- `media-server miss-episodes-check`
 - `plugin call`
 - `subscribe add`
 

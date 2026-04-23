@@ -2,6 +2,7 @@
 
 from .client import ApiResponse, ConnectionConfig, MSClient
 from .media import MEDIA_SOURCE_MAP, MediaManager
+from .media_server import MediaServerManager
 from .subscribe import MEDIA_TYPE_CHOICES, SubscribeManager
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "MEDIA_TYPE_CHOICES",
     "MSClient",
     "MediaManager",
+    "MediaServerManager",
     "SubscribeManager",
 ]

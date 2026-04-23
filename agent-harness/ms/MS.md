@@ -75,6 +75,7 @@ Media Saber 的 `.api` 文件采用 go-zero `@server` 结构，主要由 `group`
 - `config save-connection`
 - `config show-connection`
 - `media search`
+- `media-server miss-episodes-check`
 - `plugin call`
 - `subscribe add`
 
@@ -88,6 +89,28 @@ CLI 侧当前只开放两个来源映射：
 - `tmdb` -> `200`
 
 之所以不直接对接 `/api/v1/doubanSubject/search` 或 `/api/v1/searchTmdb/...`，是因为那两类接口返回的是更专门的数据结构，不适合作为一个统一的“媒体搜索”命令入口。
+
+### media-server miss-episodes-check
+
+媒体服务漏集检查接口：
+
+- `GET /api/v1/mediaServer/missEpisodesCheck`
+
+这条命令直接依赖后端新接口，不再复用旧的消息交互命令，也不在客户端侧重算漏集。
+
+返回主体是漏集项目列表，每项包含：
+
+- `tmdbId`
+- `mediaType`
+- `title`
+- `year`
+- `episodes`
+
+其中 `episodes` 为每季漏集详情：
+
+- `season`
+- `totalEpisodes`
+- `missEpisodes`
 
 ### subscribe
 

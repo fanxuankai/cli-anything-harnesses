@@ -15,12 +15,14 @@ import click
 from . import __version__
 from .core.client import ConnectionConfig, MSClient
 from .core.media import MEDIA_SOURCE_MAP, MediaManager
+from .core.media_server import MediaServerManager
 from .core.subscribe import MEDIA_TYPE_CHOICES, SubscribeManager
 from .utils.output import (
     output_connection,
     output_error,
     output_json,
     output_media_search,
+    output_media_server_miss_episodes,
     output_plugin_call,
     output_subscribe_add,
 )
@@ -38,12 +40,14 @@ class Context:
         self.conn: Optional[ConnectionConfig] = None
         self.client: Optional[MSClient] = None
         self._media_mgr: Optional[MediaManager] = None
+        self._media_server_mgr: Optional[MediaServerManager] = None
         self._subscribe_mgr: Optional[SubscribeManager] = None
 
     def setup(self, url: Optional[str], apikey: Optional[str]) -> None:
         self.conn = ConnectionConfig.resolve(url=url, api_key=apikey)
         self.client = MSClient(self.conn)
         self._media_mgr = None
+        self._media_server_mgr = None
         self._subscribe_mgr = None
 
     @property
@@ -53,6 +57,14 @@ class Context:
         if self._media_mgr is None:
             self._media_mgr = MediaManager(self.client)
         return self._media_mgr
+
+    @property
+    def media_server_mgr(self) -> MediaServerManager:
+        if self.client is None:
+            raise ValueError("Client is not initialized")
+        if self._media_server_mgr is None:
+            self._media_server_mgr = MediaServerManager(self.client)
+        return self._media_server_mgr
 
     @property
     def subscribe_mgr(self) -> SubscribeManager:
@@ -107,7 +119,7 @@ def _parse_plugin_body(body: str) -> dict:
 def main(click_ctx: click.Context, url: Optional[str], apikey: Optional[str], json_mode: bool, repl_mode: bool) -> None:
     """Media Saber 命令行工具。
 
-    通过本地 CLI 统一调用 Media Saber 能力，当前聚焦连接配置、媒体搜索、插件调用和影视订阅。
+    通过本地 CLI 统一调用 Media Saber 能力，当前聚焦连接配置、媒体搜索、媒体服务检查、插件调用和影视订阅。
 
     连接参数优先级: --url/--apikey > 环境变量 MS_URL/MS_API_KEY > ~/.ms-cli.yaml
     """
@@ -247,6 +259,37 @@ def media_search(ctx: Context, source: str, keyword: str, page: int, page_size: 
             output_json(result)
         else:
             output_media_search(result, source=source_key, keyword=keyword)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+#
+# media-server 命令组
+#
+
+@main.group("media-server")
+@pass_ctx
+def media_server(ctx: Context) -> None:
+    """媒体服务命令。"""
+
+
+@media_server.command("miss-episodes-check")
+@pass_ctx
+def media_server_miss_episodes_check(ctx: Context) -> None:
+    """检查媒体服务中的电视剧漏集情况。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.miss_episodes_check()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_miss_episodes(result)
     except SystemExit:
         raise
     except Exception as exc:

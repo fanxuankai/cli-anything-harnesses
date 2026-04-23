@@ -17,6 +17,7 @@ sys.path.insert(0, HARNESS_ROOT)
 
 from cli_anything.ms.core.client import ApiResponse, ConnectionConfig, MSClient
 from cli_anything.ms.core.media import MEDIA_SOURCE_MAP, MediaManager
+from cli_anything.ms.core.media_server import MediaServerManager
 from cli_anything.ms.core.subscribe import SubscribeManager
 from cli_anything.ms.ms_cli import main
 
@@ -202,6 +203,71 @@ class TestMediaManager:
                 "pageSize": "5",
             },
         )
+
+
+class TestMediaServerManager:
+
+    def test_miss_episodes_check_uses_media_server_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[
+                {
+                    "tmdbId": 139797,
+                    "mediaType": "tv",
+                    "title": "猎罪图鉴",
+                    "year": 2022,
+                    "episodes": [
+                        {
+                            "season": 1,
+                            "totalEpisodes": 20,
+                            "missEpisodes": [7],
+                        }
+                    ],
+                }
+            ],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaServerManager(client)
+        result = manager.miss_episodes_check()
+
+        assert result["total"] == 1
+        assert result["items"][0]["title"] == "猎罪图鉴"
+        client.request.assert_called_once_with("GET", "/api/v1/mediaServer/missEpisodesCheck")
+
+    def test_miss_episodes_check_limits_to_first_twenty_items(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[
+                {
+                    "tmdbId": idx,
+                    "mediaType": "tv",
+                    "title": f"title-{idx}",
+                    "year": 2020,
+                    "episodes": [],
+                }
+                for idx in range(25)
+            ],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaServerManager(client)
+        result = manager.miss_episodes_check()
+
+        assert result["total"] == 25
+        assert len(result["items"]) == 20
+        assert result["items"][0]["title"] == "title-0"
+        assert result["items"][-1]["title"] == "title-19"
 
 
 class TestSubscribeManager:
@@ -458,6 +524,175 @@ class TestCLI:
 
         assert result.exit_code != 0
         assert "--keyword cannot be empty" in result.output
+
+    def test_media_server_miss_episodes_check_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_miss_episodes_check(self):
+            return {
+                "total": 1,
+                "items": [
+                    {
+                        "tmdbId": 139797,
+                        "mediaType": "tv",
+                        "title": "猎罪图鉴",
+                        "year": 2022,
+                        "episodes": [
+                            {
+                                "season": 1,
+                                "totalEpisodes": 20,
+                                "missEpisodes": [7],
+                            }
+                        ],
+                    }
+                ],
+            }
+
+        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", fake_miss_episodes_check)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media-server",
+                "miss-episodes-check",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["total"] == 1
+        assert payload["items"][0]["title"] == "猎罪图鉴"
+        assert payload["items"][0]["episodes"][0]["missEpisodes"] == [7]
+
+    def test_media_server_miss_episodes_check_human_output(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_miss_episodes_check(self):
+            return {
+                "total": 1,
+                "items": [
+                    {
+                        "tmdbId": 68095,
+                        "mediaType": "tv",
+                        "title": "法医秦明",
+                        "year": 2016,
+                        "episodes": [
+                            {
+                                "season": 2,
+                                "totalEpisodes": 18,
+                                "missEpisodes": [5, 10, 12],
+                            }
+                        ],
+                    }
+                ],
+            }
+
+        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", fake_miss_episodes_check)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media-server",
+                "miss-episodes-check",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Miss Episodes Check" in result.output
+        assert "Total: 1" in result.output
+        assert "法医秦明 (2016)" in result.output
+        assert "Season 2 / Total 18 / Missing: 5, 10, 12" in result.output
+
+    def test_media_server_miss_episodes_check_empty_output(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", lambda self: {"total": 0, "items": []})
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media-server",
+                "miss-episodes-check",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Total: 0" in result.output
+        assert "✅ 无漏集" in result.output
+
+    def test_media_server_miss_episodes_check_truncates_long_missing_list(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_miss_episodes_check(self):
+            return {
+                "total": 25,
+                "items": [
+                    {
+                        "tmdbId": 69714,
+                        "mediaType": "tv",
+                        "title": "心理罪",
+                        "year": 2015,
+                        "episodes": [
+                            {
+                                "season": 1,
+                                "totalEpisodes": 2110,
+                                "missEpisodes": list(range(12, 40)),
+                            }
+                        ],
+                    }
+                ],
+            }
+
+        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", fake_miss_episodes_check)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media-server",
+                "miss-episodes-check",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Showing first 1 items" in result.output
+        assert "... (28 total)" in result.output
+
+    def test_media_server_miss_episodes_check_surfaces_backend_error(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_miss_episodes_check(self):
+            raise ValueError("404 page not found")
+
+        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", fake_miss_episodes_check)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media-server",
+                "miss-episodes-check",
+            ],
+        )
+
+        assert result.exit_code != 0
+        payload = json.loads(result.output)
+        assert payload["error"] == "404 page not found"
 
     def test_plugin_call_json(self, monkeypatch):
         runner = CliRunner()

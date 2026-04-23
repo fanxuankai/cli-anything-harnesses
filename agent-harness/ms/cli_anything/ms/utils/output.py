@@ -141,3 +141,40 @@ def output_plugin_call(result: Any) -> None:
         _print_data(data)
     elif not message:
         console.print("[bold green]插件调用成功[/bold green]")
+
+
+def output_media_server_miss_episodes(result: dict[str, Any]) -> None:
+    console.print("[bold]Miss Episodes Check[/bold]")
+
+    total = int(result.get("total") or 0)
+    items = result.get("items") or []
+
+    console.print(f"Total: {total}")
+
+    if not items:
+        console.print("[green]✅ 无漏集[/green]")
+        return
+
+    if total > len(items):
+        console.print(f"Showing first {len(items)} items")
+
+    for item in items:
+        title = str(item.get("title", "") or "")
+        year = item.get("year")
+        header = title if year in (None, "") else f"{title} ({year})"
+        console.print(f"[cyan]{header}[/cyan]")
+
+        episodes = item.get("episodes") or []
+        for season_item in episodes:
+            season = season_item.get("season", "")
+            total = season_item.get("totalEpisodes", "")
+            missing = season_item.get("missEpisodes") or []
+            missing_text = _format_missing_episodes(missing)
+            console.print(f"  Season {season} / Total {total} / Missing: {missing_text}")
+
+
+def _format_missing_episodes(episodes: list[Any], limit: int = 20) -> str:
+    normalized = [str(item) for item in episodes]
+    if len(normalized) <= limit:
+        return ", ".join(normalized)
+    return f"{', '.join(normalized[:limit])} ... ({len(normalized)} total)"
