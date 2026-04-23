@@ -106,7 +106,6 @@ cli-anything-ms --json subscribe add --type tv --name "<title>" --year <year> --
 ## 注意事项
 
 - 这个技能只处理电视剧，不处理电影。
-- 不要调用 TMDB 搜索，也不要复用 `ms-sub` 的搜片流程。
 - 不要发明新的补漏集 CLI 子命令。
 - “补前几个”始终按漏集结果的原始顺序取前 N 个剧。
 - 输出要先给用户可读摘要，再在需要时展示原始 JSON。
