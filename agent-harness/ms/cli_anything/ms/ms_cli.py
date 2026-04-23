@@ -1,9 +1,10 @@
-"""CLI entrypoint for the Media Saber harness."""
+"""Media Saber CLI 入口 - 基于 Click 的命令行工具。
+
+支持 REPL 模式和一次性命令，所有业务命令支持 --json 输出。
+"""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 import shlex
 import sys
 from typing import Optional
@@ -14,18 +15,14 @@ from . import __version__
 from .core.client import ConnectionConfig, MSClient
 from .core.media import MEDIA_SOURCE_MAP, MediaManager
 from .core.subscribe import MEDIA_TYPE_CHOICES, SubscribeManager
-from .utils.output import (
-    output_connection,
-    output_error,
-    output_json,
-    output_media_search,
-    output_response,
-    output_subscribe_add,
-)
+from .utils.output import output_connection, output_error, output_json, output_media_search, output_subscribe_add
+
+
+# ---- 全局上下文 ----
 
 
 class Context:
-    """CLI runtime context."""
+    """CLI 运行时上下文。"""
 
     def __init__(self) -> None:
         self.json_mode = False
@@ -69,18 +66,7 @@ def handle_error(ctx: Context, exc: Exception) -> None:
     raise SystemExit(1)
 
 
-def _parse_kv_pairs(pairs: tuple[str, ...], option_name: str) -> dict[str, str]:
-    parsed: dict[str, str] = {}
-    for item in pairs:
-        if "=" not in item:
-            raise click.UsageError(f"{option_name} expects key=value, got: {item}")
-        key, value = item.split("=", 1)
-        key = key.strip()
-        if not key:
-            raise click.UsageError(f"{option_name} key cannot be empty")
-        parsed[key] = value
-    return parsed
-
+# ---- 根命令组 ----
 
 @click.group(invoke_without_command=True)
 @click.option("--url", "-u", envvar="MS_URL", help="Media Saber base URL")
@@ -90,7 +76,12 @@ def _parse_kv_pairs(pairs: tuple[str, ...], option_name: str) -> dict[str, str]:
 @click.version_option(version=__version__, prog_name="cli-anything-ms")
 @click.pass_context
 def main(click_ctx: click.Context, url: Optional[str], apikey: Optional[str], json_mode: bool, repl_mode: bool) -> None:
-    """Media Saber minimal CLI harness."""
+    """Media Saber 命令行工具。
+
+    通过本地 CLI 统一调用 Media Saber 能力，当前聚焦连接配置、媒体搜索和影视订阅。
+
+    连接参数优先级: --url/--apikey > 环境变量 MS_URL/MS_API_KEY > ~/.ms-cli.yaml
+    """
     ctx = click_ctx.ensure_object(Context)
     ctx.json_mode = json_mode
     ctx.setup(url, apikey)
@@ -107,6 +98,7 @@ def main(click_ctx: click.Context, url: Optional[str], apikey: Optional[str], js
 
 
 def _enter_repl(ctx: Context) -> None:
+    """交互式 REPL 模式。"""
     ctx.in_repl = True
     click.echo("Media Saber REPL. 输入 help 查看帮助，exit 退出。")
 
@@ -135,10 +127,14 @@ def _enter_repl(ctx: Context) -> None:
             output_error(str(exc))
 
 
+#
+# config 命令组
+#
+
 @main.group()
 @pass_ctx
 def config(ctx: Context) -> None:
-    """Connection config commands."""
+    """连接配置管理。"""
 
 
 @config.command("save-connection")
@@ -146,7 +142,7 @@ def config(ctx: Context) -> None:
 @click.option("--apikey", "-k", required=True, help="Media Saber API key")
 @pass_ctx
 def save_connection(ctx: Context, url: str, apikey: str) -> None:
-    """Persist connection config to ~/.ms-cli.yaml."""
+    """保存连接参数到 ~/.ms-cli.yaml。"""
     try:
         config_path = ConnectionConfig.save(url, apikey)
         output_connection(
@@ -165,7 +161,7 @@ def save_connection(ctx: Context, url: str, apikey: str) -> None:
 @config.command("show-connection")
 @pass_ctx
 def show_connection(ctx: Context) -> None:
-    """Show the resolved connection settings."""
+    """显示当前生效的连接配置。"""
     try:
         if ctx.conn is None:
             raise ValueError("Connection state is unavailable")
@@ -174,10 +170,14 @@ def show_connection(ctx: Context) -> None:
         handle_error(ctx, exc)
 
 
+#
+# media 命令组
+#
+
 @main.group()
 @pass_ctx
 def media(ctx: Context) -> None:
-    """Media search commands."""
+    """媒体搜索命令。"""
 
 
 @media.command("search")
@@ -198,7 +198,7 @@ def media(ctx: Context) -> None:
 )
 @pass_ctx
 def media_search(ctx: Context, source: str, keyword: str, page: int, page_size: int) -> None:
-    """Search media by source and keyword."""
+    """按来源和关键字搜索媒体。"""
     try:
         if ctx.conn is None:
             raise ValueError("Connection state is unavailable")
@@ -224,10 +224,14 @@ def media_search(ctx: Context, source: str, keyword: str, page: int, page_size: 
         handle_error(ctx, exc)
 
 
+#
+# subscribe 命令组
+#
+
 @main.group()
 @pass_ctx
 def subscribe(ctx: Context) -> None:
-    """Subscribe add commands."""
+    """影视订阅命令。"""
 
 
 @subscribe.command("add")
@@ -249,7 +253,7 @@ def subscribe_add(
     year: int,
     season: Optional[int],
 ) -> None:
-    """Add a minimal movie or TV subscription using default config."""
+    """使用默认配置新增最小电影或电视剧订阅。"""
     try:
         if ctx.conn is None:
             raise ValueError("Connection state is unavailable")
@@ -275,58 +279,6 @@ def subscribe_add(
             output_json(result)
         else:
             output_subscribe_add(result)
-    except SystemExit:
-        raise
-    except Exception as exc:
-        handle_error(ctx, exc)
-
-
-@main.command("request", hidden=True)
-@click.argument("method")
-@click.argument("path")
-@click.option("--query", "query_items", multiple=True, help="Add query parameter as key=value")
-@click.option("--header", "header_items", multiple=True, help="Add header as key=value")
-@click.option("--json-body", help="Inline JSON request body")
-@click.option("--body-file", type=click.Path(exists=True, dir_okay=False, path_type=Path), help="Read JSON body from file")
-@click.option("--raw", is_flag=True, help="Print raw response body instead of normalized output")
-@pass_ctx
-def request_command(
-    ctx: Context,
-    method: str,
-    path: str,
-    query_items: tuple[str, ...],
-    header_items: tuple[str, ...],
-    json_body: Optional[str],
-    body_file: Optional[Path],
-    raw: bool,
-) -> None:
-    """Perform a generic HTTP request against Media Saber."""
-    try:
-        if json_body and body_file:
-            raise click.UsageError("--json-body and --body-file cannot be used together")
-        if ctx.conn is None or ctx.client is None:
-            raise ValueError("Client is not initialized")
-
-        ctx.conn.require_configured()
-        query = _parse_kv_pairs(query_items, "--query")
-        headers = _parse_kv_pairs(header_items, "--header")
-
-        payload = None
-        if body_file is not None:
-            payload = json.loads(body_file.read_text(encoding="utf-8"))
-        elif json_body:
-            payload = json.loads(json_body)
-
-        response = ctx.client.request(
-            method=method,
-            path=path,
-            params=query or None,
-            headers=headers or None,
-            json_body=payload,
-        )
-        output_response(response, json_mode=ctx.json_mode, raw=raw)
-        if not response.ok:
-            raise SystemExit(1)
     except SystemExit:
         raise
     except Exception as exc:

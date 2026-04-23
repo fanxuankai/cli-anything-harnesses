@@ -295,69 +295,6 @@ class TestCLI:
         assert payload["base_url"] == "http://localhost:8899"
         assert payload["api_key"] == "secr...-key"
 
-    def test_request_command_normalized_json(self, monkeypatch):
-        runner = CliRunner()
-
-        def fake_request(self, method, path, params=None, headers=None, json_body=None, timeout=30):
-            assert method == "GET"
-            assert path == "/api/v1/system/status"
-            assert params == {"keyword": "test"}
-            assert headers == {"X-Test": "1"}
-            assert json_body is None
-            return ApiResponse(
-                status_code=200,
-                ok=True,
-                code=0,
-                message="success",
-                data={"status": "ok"},
-                raw_body={"code": 0, "message": "success", "data": {"status": "ok"}},
-                is_standard_response=True,
-            )
-
-        monkeypatch.setattr(MSClient, "request", fake_request)
-        result = runner.invoke(
-            main,
-            [
-                "--url",
-                "http://localhost:8899",
-                "--apikey",
-                "secret-key",
-                "--json",
-                "request",
-                "GET",
-                "/api/v1/system/status",
-                "--query",
-                "keyword=test",
-                "--header",
-                "X-Test=1",
-            ],
-        )
-
-        assert result.exit_code == 0
-        payload = json.loads(result.output)
-        assert payload["ok"] is True
-        assert payload["data"] == {"status": "ok"}
-
-    def test_request_command_rejects_bad_key_value(self):
-        runner = CliRunner()
-        result = runner.invoke(
-            main,
-            [
-                "--url",
-                "http://localhost:8899",
-                "--apikey",
-                "secret-key",
-                "request",
-                "GET",
-                "/api/v1/system/status",
-                "--query",
-                "broken",
-            ],
-        )
-
-        assert result.exit_code != 0
-        assert "key=value" in result.output
-
     def test_media_search_command_normalized_json(self, monkeypatch):
         runner = CliRunner()
 

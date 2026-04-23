@@ -122,10 +122,6 @@ media search --source tmdb --keyword Interstellar
 - 高级订阅字段覆盖
 - 其他 `system/media/site/...` 显式业务命令组
 
-## 内部命令
-
-`request` 命令仍然保留为内部兜底能力，供技能和内部流程使用，但不会作为公开命令在帮助和文档中展示。
-
 ## 依赖
 
 - Python >= 3.9

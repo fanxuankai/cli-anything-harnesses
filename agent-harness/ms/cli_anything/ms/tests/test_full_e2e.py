@@ -42,7 +42,7 @@ def _server_available() -> bool:
         args.extend(["--url", MS_URL])
     if MS_API_KEY:
         args.extend(["--apikey", MS_API_KEY])
-    args.extend(["request", "GET", "/api/v1/system/status"])
+    args.extend(["media", "search", "--source", "tmdb", "--keyword", "Interstellar"])
     result = _cli(*args)
     return result.returncode == 0
 
@@ -96,20 +96,6 @@ class TestConfigPersistence:
 
 
 class TestLiveServer:
-
-    @skip_no_server
-    def test_system_status(self):
-        args = ["--json"]
-        if MS_URL:
-            args.extend(["--url", MS_URL])
-        if MS_API_KEY:
-            args.extend(["--apikey", MS_API_KEY])
-        args.extend(["request", "GET", "/api/v1/system/status"])
-        result = _cli(*args)
-
-        assert result.returncode == 0
-        payload = json.loads(result.stdout)
-        assert payload["status_code"] == 200
 
     @skip_no_server
     def test_media_search_tmdb(self):
