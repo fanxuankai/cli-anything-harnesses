@@ -9,6 +9,7 @@ my.md
 agent-harness/*/dist/
 # AGENTS
 .claude/
+.codex/
 .omc/
 .omx/
 
