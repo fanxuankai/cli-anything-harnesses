@@ -32,3 +32,15 @@ GITHUB_TOKEN=你的 Github PAT
 ```bash
 hermes skills install fanxuankai/cli-anything-harnesses/skills/<skill-name> --force
 ```
+
+例如安装 `ms-sub`：
+
+```bash
+hermes skills install fanxuankai/cli-anything-harnesses/skills/ms-sub --force
+```
+
+例如安装 `ms-zspace-state`：
+
+```bash
+hermes skills install fanxuankai/cli-anything-harnesses/skills/ms-zspace-state --force
+```
