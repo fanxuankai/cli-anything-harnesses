@@ -15,6 +15,7 @@
 - API key 脱敏展示
 - `MSClient` URL 拼接与 Bearer 鉴权头
 - `MediaManager.search` 的来源映射和 query 拼装
+- `plugin call` 的 JSON 解析、请求路径和输出格式
 - `SubscribeManager.get_default_config` 的 detail 路径访问
 - `SubscribeManager.add` 的默认配置合并与 save 请求
 - `ApiResponse` 对标准 `code/message/data` 的解包
@@ -36,6 +37,7 @@ pytest cli_anything/ms/tests/test_core.py -v
 
 - `cli-anything-ms --help`
 - `cli-anything-ms media search --help`
+- `cli-anything-ms plugin call --help`
 - `cli-anything-ms subscribe add --help`
 - `cli-anything-ms config save-connection`
 - 已安装命令与 `python -m cli_anything.ms` 入口兼容
@@ -46,6 +48,10 @@ pytest cli_anything/ms/tests/test_core.py -v
 
 ```bash
 cli-anything-ms --json media search --source tmdb --keyword Interstellar
+```
+
+```bash
+cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"action":"get_recent_state","body":{}}'
 ```
 
 运行方式：

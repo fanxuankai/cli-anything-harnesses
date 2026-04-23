@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import shlex
 import sys
 from typing import Optional
@@ -15,7 +16,14 @@ from . import __version__
 from .core.client import ConnectionConfig, MSClient
 from .core.media import MEDIA_SOURCE_MAP, MediaManager
 from .core.subscribe import MEDIA_TYPE_CHOICES, SubscribeManager
-from .utils.output import output_connection, output_error, output_json, output_media_search, output_subscribe_add
+from .utils.output import (
+    output_connection,
+    output_error,
+    output_json,
+    output_media_search,
+    output_plugin_call,
+    output_subscribe_add,
+)
 
 
 # ---- 全局上下文 ----
@@ -66,6 +74,27 @@ def handle_error(ctx: Context, exc: Exception) -> None:
     raise SystemExit(1)
 
 
+def _parse_plugin_body(body: str) -> dict:
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise click.UsageError(f"--body must be valid JSON: {exc.msg}") from exc
+
+    if not isinstance(payload, dict):
+        raise click.UsageError("--body must be a JSON object")
+
+    action = payload.get("action")
+    if not isinstance(action, str) or not action.strip():
+        raise click.UsageError("--body.action must be a non-empty string")
+
+    nested_body = payload.get("body")
+    if nested_body is not None and not isinstance(nested_body, dict):
+        raise click.UsageError("--body.body must be a JSON object")
+
+    payload["action"] = action.strip()
+    return payload
+
+
 # ---- 根命令组 ----
 
 @click.group(invoke_without_command=True)
@@ -78,7 +107,7 @@ def handle_error(ctx: Context, exc: Exception) -> None:
 def main(click_ctx: click.Context, url: Optional[str], apikey: Optional[str], json_mode: bool, repl_mode: bool) -> None:
     """Media Saber 命令行工具。
 
-    通过本地 CLI 统一调用 Media Saber 能力，当前聚焦连接配置、媒体搜索和影视订阅。
+    通过本地 CLI 统一调用 Media Saber 能力，当前聚焦连接配置、媒体搜索、插件调用和影视订阅。
 
     连接参数优先级: --url/--apikey > 环境变量 MS_URL/MS_API_KEY > ~/.ms-cli.yaml
     """
@@ -218,6 +247,51 @@ def media_search(ctx: Context, source: str, keyword: str, page: int, page_size: 
             output_json(result)
         else:
             output_media_search(result, source=source_key, keyword=keyword)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+#
+# plugin 命令组
+#
+
+@main.group()
+@pass_ctx
+def plugin(ctx: Context) -> None:
+    """插件调用命令。"""
+
+
+@plugin.command("call")
+@click.option("--code", required=True, help="Plugin code")
+@click.option("--body", required=True, help="Plugin request JSON body")
+@pass_ctx
+def plugin_call(ctx: Context, code: str, body: str) -> None:
+    """按插件 code 调用 pluginsInstance/callByCode。"""
+    try:
+        if ctx.conn is None or ctx.client is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        code = code.strip()
+        if not code:
+            raise click.UsageError("--code cannot be empty")
+
+        payload = _parse_plugin_body(body)
+        response = ctx.client.request(
+            "POST",
+            f"/api/v1/pluginsInstance/callByCode/{code}",
+            json_body=payload,
+        )
+        if not response.ok:
+            message = response.message or f"Plugin call failed with HTTP {response.status_code}"
+            raise ValueError(message)
+
+        if ctx.json_mode:
+            output_json(response.data)
+        else:
+            output_plugin_call(response.data)
     except SystemExit:
         raise
     except Exception as exc:

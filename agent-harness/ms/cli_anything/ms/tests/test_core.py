@@ -459,6 +459,235 @@ class TestCLI:
         assert result.exit_code != 0
         assert "--keyword cannot be empty" in result.output
 
+    def test_plugin_call_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_request(self, method, path, *, params=None, headers=None, json_body=None, timeout=30):
+            assert method == "POST"
+            assert path == "/api/v1/pluginsInstance/callByCode/zspace_service_assistant"
+            assert json_body == {"action": "get_recent_state", "body": {}}
+            return ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={"message": "", "data": [{"basic": {"name": "Z4Pro"}}]},
+                raw_body={},
+                is_standard_response=True,
+            )
+
+        monkeypatch.setattr(MSClient, "request", fake_request)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "plugin",
+                "call",
+                "--code",
+                "zspace_service_assistant",
+                "--body",
+                '{"action":"get_recent_state","body":{}}',
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["message"] == ""
+        assert payload["data"][0]["basic"]["name"] == "Z4Pro"
+
+    def test_plugin_call_human_output_with_message_and_data(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_request(self, method, path, *, params=None, headers=None, json_body=None, timeout=30):
+            return ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={"message": "密钥生成成功", "data": {"value": 1}},
+                raw_body={},
+                is_standard_response=True,
+            )
+
+        monkeypatch.setattr(MSClient, "request", fake_request)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "plugin",
+                "call",
+                "--code",
+                "cloud_backup",
+                "--body",
+                '{"action":"genKey","body":{}}',
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "密钥生成成功" in result.output
+        assert '"value": 1' in result.output
+
+    def test_plugin_call_human_output_when_plugin_result_is_null(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_request(self, method, path, *, params=None, headers=None, json_body=None, timeout=30):
+            return ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data=None,
+                raw_body={},
+                is_standard_response=True,
+            )
+
+        monkeypatch.setattr(MSClient, "request", fake_request)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "plugin",
+                "call",
+                "--code",
+                "moment",
+                "--body",
+                '{"action":"noop","body":{}}',
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "插件调用成功" in result.output
+
+    def test_plugin_call_rejects_invalid_json(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "plugin",
+                "call",
+                "--code",
+                "moment",
+                "--body",
+                "{bad json",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--body must be valid JSON" in result.output
+
+    def test_plugin_call_rejects_non_object_body(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "plugin",
+                "call",
+                "--code",
+                "moment",
+                "--body",
+                '["x"]',
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--body must be a JSON object" in result.output
+
+    def test_plugin_call_requires_action(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "plugin",
+                "call",
+                "--code",
+                "moment",
+                "--body",
+                '{"body":{}}',
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--body.action must be a non-empty string" in result.output
+
+    def test_plugin_call_requires_object_body_field(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "plugin",
+                "call",
+                "--code",
+                "moment",
+                "--body",
+                '{"action":"noop","body":"x"}',
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--body.body must be a JSON object" in result.output
+
+    def test_plugin_call_surfaces_backend_error(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_request(self, method, path, *, params=None, headers=None, json_body=None, timeout=30):
+            return ApiResponse(
+                status_code=200,
+                ok=False,
+                code=50000,
+                message="还没有安装秘籍: 极空间服务助手",
+                data=None,
+                raw_body={},
+                is_standard_response=True,
+            )
+
+        monkeypatch.setattr(MSClient, "request", fake_request)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "plugin",
+                "call",
+                "--code",
+                "zspace_service_assistant",
+                "--body",
+                '{"action":"get_recent_state","body":{}}',
+            ],
+        )
+
+        assert result.exit_code != 0
+        payload = json.loads(result.output)
+        assert "还没有安装秘籍" in payload["error"]
+
     def test_subscribe_add_json(self, monkeypatch):
         runner = CliRunner()
 

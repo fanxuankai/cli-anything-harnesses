@@ -4,11 +4,11 @@
 
 `ms` 是 Media Saber 后端的最小可用 CLI harness。
 
-首版只做三件事：
+当前版本只做几件事：
 
 - 管理连接配置
 - 提供稳定的通用 HTTP 客户端
-- 通过 `request` 命令调用任意已知 API 路径
+- 提供少量高频业务命令
 
 当前阶段不自动生成命令，不包装业务模块，只把 `/Users/fanxuankai/GolandProjects/media-saber-back-end/api` 中的接口定义整理成后续可扩展的结构认知。
 
@@ -75,8 +75,8 @@ Media Saber 的 `.api` 文件采用 go-zero `@server` 结构，主要由 `group`
 - `config save-connection`
 - `config show-connection`
 - `media search`
+- `plugin call`
 - `subscribe add`
-- `request METHOD PATH`
 
 ### media search
 
@@ -118,6 +118,43 @@ CLI 侧当前只开放两个来源映射：
 - movie: `name` + `year`
 - tv: `name` + `year` + `season`
 
+### plugin call
+
+插件按 code 调用接口：
+
+- `POST /api/v1/pluginsInstance/callByCode/:code`
+
+请求体固定对应后端 `PluginInstanceCallByCodeReq`：
+
+```json
+{
+  "action": "get_recent_state",
+  "body": {}
+}
+```
+
+命令面只暴露：
+
+- `--code`
+- `--body`
+
+其中 `--body` 直接传完整 JSON 对象，不再拆单独 `--action`。
+
+该接口成功响应是两层结构：
+
+```json
+{
+  "code": 20000,
+  "message": "SUCCESS",
+  "data": {
+    "message": "",
+    "data": []
+  }
+}
+```
+
+也就是外层仍然是 Media Saber 标准响应，外层 `data` 内部才是插件自己的 `message/data`。
+
 ### REPL
 
 无子命令且当前终端可交互时，默认进入 REPL。
@@ -135,6 +172,5 @@ REPL 只做基础命令调度，不在首版引入自动补全、历史文件或
 
 扩展时优先遵循：
 
-- 保留 `request` 作为兜底入口
 - 继续兼容 `--json`
 - 复用同一连接配置和响应解包逻辑

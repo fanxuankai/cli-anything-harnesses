@@ -69,6 +69,13 @@ class TestCLIHelp:
         assert "--source" in result.stdout
         assert "--keyword" in result.stdout
 
+    def test_plugin_call_help(self):
+        result = _cli("plugin", "call", "--help")
+
+        assert result.returncode == 0
+        assert "--code" in result.stdout
+        assert "--body" in result.stdout
+
     def test_subscribe_add_help(self):
         result = _cli("subscribe", "add", "--help")
 
@@ -110,3 +117,29 @@ class TestLiveServer:
         assert result.returncode == 0
         payload = json.loads(result.stdout)
         assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
+
+    @skip_no_server
+    def test_plugin_call_by_code(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(
+            [
+                "plugin",
+                "call",
+                "--code",
+                "zspace_service_assistant",
+                "--body",
+                '{"action":"get_recent_state","body":{}}',
+            ]
+        )
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert "data" in payload or payload is None
+        else:
+            assert "error" in payload

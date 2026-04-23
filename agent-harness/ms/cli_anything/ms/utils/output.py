@@ -120,3 +120,24 @@ def _print_data(data: Any) -> None:
         console.print_json(json.dumps(data, ensure_ascii=False))
         return
     console.print(str(data))
+
+
+def output_plugin_call(result: Any) -> None:
+    if result is None:
+        console.print("[bold green]插件调用成功[/bold green]")
+        return
+
+    if not isinstance(result, dict):
+        _print_data(result)
+        return
+
+    message = result.get("message")
+    data = result.get("data")
+
+    if message:
+        console.print(f"[green]{message}[/green]")
+
+    if data is not None:
+        _print_data(data)
+    elif not message:
+        console.print("[bold green]插件调用成功[/bold green]")
