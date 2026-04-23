@@ -3,7 +3,7 @@ from setuptools import find_namespace_packages, setup
 
 setup(
     name="cli-anything-ms",
-    version="0.3.0",
+    version="0.4.0",
     description="CLI harness for Media Saber backend",
     packages=find_namespace_packages(include=["cli_anything.*"]),
     python_requires=">=3.9",
