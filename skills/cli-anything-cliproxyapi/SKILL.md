@@ -16,6 +16,12 @@ dependencies:
 
 CLI 管理工具，用于通过 Management API 管理 CLIProxyAPI 代理服务器。
 
+## 安装
+
+```bash
+pip install cli-anything-cliproxyapi
+```
+
 ## 连接配置
 
 优先级：`--url/--key` > 环境变量 `CPA_URL/CPA_KEY` > `~/.cliproxyapi-cli.yaml`
