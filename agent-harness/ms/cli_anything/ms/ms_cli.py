@@ -14,13 +14,21 @@ import click
 
 from . import __version__
 from .core.client import ConnectionConfig, MSClient
-from .core.media import MEDIA_SOURCE_MAP, MediaManager
+from .core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
 from .core.media_server import MediaServerManager
 from .core.subscribe import MEDIA_TYPE_CHOICES, SubscribeManager
 from .utils.output import (
     output_connection,
     output_error,
     output_json,
+    output_media_rank_categories,
+    output_media_rank_items,
+    output_media_rank_sources,
+    output_media_rank_subjects,
+    output_media_recommend_channels,
+    output_media_recommend_items,
+    output_media_recommend_options,
+    output_media_recommend_sources,
     output_media_search,
     output_media_server_miss_episodes,
     output_plugin_call,
@@ -104,6 +112,18 @@ def _parse_plugin_body(body: str) -> dict:
         raise click.UsageError("--body.body must be a JSON object")
 
     payload["action"] = action.strip()
+    return payload
+
+
+def _parse_json_object_option(raw: str, option_name: str) -> dict:
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise click.UsageError(f"{option_name} must be valid JSON: {exc.msg}") from exc
+
+    if not isinstance(payload, dict):
+        raise click.UsageError(f"{option_name} must be a JSON object")
+
     return payload
 
 
@@ -259,6 +279,277 @@ def media_search(ctx: Context, source: str, keyword: str, page: int, page_size: 
             output_json(result)
         else:
             output_media_search(result, source=source_key, keyword=keyword)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media.group("rank")
+@pass_ctx
+def media_rank(ctx: Context) -> None:
+    """媒体榜单命令。"""
+
+
+@media_rank.command("sources")
+@pass_ctx
+def media_rank_sources(ctx: Context) -> None:
+    """获取榜单来源。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_mgr.rank_sources()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_rank_sources(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_rank.command("categories")
+@click.option(
+    "--source",
+    type=click.Choice(sorted(MEDIA_RANK_SOURCE_MAP.keys()), case_sensitive=False),
+    required=True,
+    help="Media rank source name",
+)
+@pass_ctx
+def media_rank_categories(ctx: Context, source: str) -> None:
+    """按榜单来源获取分类。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        source_key = source.lower()
+        result = ctx.media_mgr.rank_categories(MEDIA_RANK_SOURCE_MAP[source_key])
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_rank_categories(result, source=source_key)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_rank.command("subjects")
+@click.option("--category-code", required=True, help="Media rank category code")
+@pass_ctx
+def media_rank_subjects(ctx: Context, category_code: str) -> None:
+    """按榜单分类获取主题。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        category_code = category_code.strip()
+        if not category_code:
+            raise click.UsageError("--category-code cannot be empty")
+
+        result = ctx.media_mgr.rank_subjects(category_code)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_rank_subjects(result, category_code=category_code)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_rank.command("items")
+@click.option("--category-code", required=True, help="Media rank category code")
+@click.option("--code", required=True, help="Media rank subject code")
+@click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
+@click.option(
+    "--page-size",
+    type=click.IntRange(min=1),
+    default=20,
+    show_default=True,
+    help="Page size",
+)
+@pass_ctx
+def media_rank_items(ctx: Context, category_code: str, code: str, page: int, page_size: int) -> None:
+    """按榜单主题获取条目。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        category_code = category_code.strip()
+        code = code.strip()
+        if not category_code:
+            raise click.UsageError("--category-code cannot be empty")
+        if not code:
+            raise click.UsageError("--code cannot be empty")
+
+        result = ctx.media_mgr.rank_items(
+            category_code=category_code,
+            code=code,
+            page=page,
+            page_size=page_size,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_rank_items(result, category_code=category_code, code=code)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media.group("recommend")
+@pass_ctx
+def media_recommend(ctx: Context) -> None:
+    """媒体推荐命令。"""
+
+
+@media_recommend.command("sources")
+@pass_ctx
+def media_recommend_sources(ctx: Context) -> None:
+    """获取推荐来源。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_mgr.recommend_sources()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_recommend_sources(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_recommend.command("channels")
+@click.option(
+    "--source",
+    type=click.Choice(sorted(MEDIA_RECOMMEND_SOURCE_MAP.keys()), case_sensitive=False),
+    required=True,
+    help="Media recommend source name",
+)
+@pass_ctx
+def media_recommend_channels(ctx: Context, source: str) -> None:
+    """按推荐来源获取频道。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        source_key = source.lower()
+        result = ctx.media_mgr.recommend_channels(MEDIA_RECOMMEND_SOURCE_MAP[source_key])
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_recommend_channels(result, source=source_key)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_recommend.command("options")
+@click.option(
+    "--source",
+    type=click.Choice(sorted(MEDIA_RECOMMEND_SOURCE_MAP.keys()), case_sensitive=False),
+    required=True,
+    help="Media recommend source name",
+)
+@click.option("--channel", required=True, help="Media recommend channel")
+@pass_ctx
+def media_recommend_options(ctx: Context, source: str, channel: str) -> None:
+    """按推荐来源和频道获取动态选项。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        source_key = source.lower()
+        channel = channel.strip()
+        if not channel:
+            raise click.UsageError("--channel cannot be empty")
+
+        result = ctx.media_mgr.recommend_options(
+            media_source=MEDIA_RECOMMEND_SOURCE_MAP[source_key],
+            channel=channel,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_recommend_options(result, source=source_key, channel=channel)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_recommend.command("items")
+@click.option(
+    "--source",
+    type=click.Choice(sorted(MEDIA_RECOMMEND_SOURCE_MAP.keys()), case_sensitive=False),
+    required=True,
+    help="Media recommend source name",
+)
+@click.option("--channel", required=True, help="Media recommend channel")
+@click.option("--options", "options_json", help="Media recommend options JSON object")
+@click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
+@click.option(
+    "--page-size",
+    type=click.IntRange(min=1),
+    default=20,
+    show_default=True,
+    help="Page size",
+)
+@pass_ctx
+def media_recommend_items(
+    ctx: Context,
+    source: str,
+    channel: str,
+    options_json: Optional[str],
+    page: int,
+    page_size: int,
+) -> None:
+    """按推荐来源、频道和动态选项获取推荐条目。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        source_key = source.lower()
+        channel = channel.strip()
+        if not channel:
+            raise click.UsageError("--channel cannot be empty")
+
+        options = {} if not options_json else _parse_json_object_option(options_json, "--options")
+        result = ctx.media_mgr.recommend_items(
+            media_source=MEDIA_RECOMMEND_SOURCE_MAP[source_key],
+            channel=channel,
+            options=options,
+            page=page,
+            page_size=page_size,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_recommend_items(result, source=source_key, channel=channel)
     except SystemExit:
         raise
     except Exception as exc:

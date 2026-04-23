@@ -1,0 +1,4 @@
+interface:
+  display_name: "MS 影视推荐"
+  short_description: "用 ms CLI 浏览影视推荐并按平台、频道、动态选项逐步筛选"
+  default_prompt: "使用 $ms-recommend 查询影视推荐，并按平台、频道和动态选项逐步展示结果。"

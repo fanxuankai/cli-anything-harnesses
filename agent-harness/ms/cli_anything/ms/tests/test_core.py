@@ -16,7 +16,7 @@ HARNESS_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 sys.path.insert(0, HARNESS_ROOT)
 
 from cli_anything.ms.core.client import ApiResponse, ConnectionConfig, MSClient
-from cli_anything.ms.core.media import MEDIA_SOURCE_MAP, MediaManager
+from cli_anything.ms.core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
 from cli_anything.ms.core.media_server import MediaServerManager
 from cli_anything.ms.core.subscribe import SubscribeManager
 from cli_anything.ms.ms_cli import main
@@ -203,6 +203,251 @@ class TestMediaManager:
                 "pageSize": "5",
             },
         )
+
+    def test_rank_sources_uses_media_subject_media_sources_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[{"value": 100, "text": "豆瓣"}],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+        result = manager.rank_sources()
+
+        assert result == [{"value": 100, "text": "豆瓣"}]
+        client.request.assert_called_once_with("GET", "/api/v1/mediaSubject/mediaSources")
+
+    def test_rank_categories_uses_media_subject_categories_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[{"code": "douban_tv", "name": "📺 电视榜单", "custom": False}],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+        result = manager.rank_categories(100)
+
+        assert result[0]["code"] == "douban_tv"
+        client.request.assert_called_once_with("GET", "/api/v1/mediaSubject/categories/100")
+
+    def test_rank_subjects_uses_media_subject_list_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[{"code": "tv_domestic", "name": "热播国产剧", "custom": False, "landscape": False}],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+        result = manager.rank_subjects("douban_tv")
+
+        assert result[0]["code"] == "tv_domestic"
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/mediaSubject/list",
+            params={"categoryCode": "douban_tv"},
+        )
+
+    def test_rank_items_uses_media_subject_items_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"total": 50, "pageNum": 1, "pageSize": 25, "list": [{"title": "危险关系"}]},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+        result = manager.rank_items(category_code="douban_tv", code="tv_domestic", page=1, page_size=25)
+
+        assert result["total"] == 50
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/mediaSubject/items",
+            params={
+                "categoryCode": "douban_tv",
+                "code": "tv_domestic",
+                "pageNum": "1",
+                "pageSize": "25",
+            },
+        )
+
+    def test_rank_sources_rejects_non_list_payload(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"value": 100},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+
+        with pytest.raises(ValueError, match="Media rank sources returned an unexpected response payload"):
+            manager.rank_sources()
+
+    def test_rank_items_rejects_non_dict_payload(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+
+        with pytest.raises(ValueError, match="Media rank items returned an unexpected response payload"):
+            manager.rank_items(category_code="douban_tv", code="tv_domestic", page=1, page_size=20)
+
+    def test_recommend_sources_uses_media_recommend_media_sources_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[{"value": 100, "text": "豆瓣"}],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+        result = manager.recommend_sources()
+
+        assert result == [{"value": 100, "text": "豆瓣"}]
+        client.request.assert_called_once_with("GET", "/api/v1/mediaRecommend/mediaSources")
+
+    def test_recommend_channels_uses_media_recommend_channels_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[{"value": "movie", "text": "电影"}],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+        result = manager.recommend_channels(100)
+
+        assert result[0]["value"] == "movie"
+        client.request.assert_called_once_with("GET", "/api/v1/mediaRecommend/channels/100")
+
+    def test_recommend_options_uses_media_recommend_options_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[{"id": "sort", "text": "排序", "options": [{"value": "", "text": "默认"}]}],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+        result = manager.recommend_options(media_source=100, channel="movie")
+
+        assert result[0]["id"] == "sort"
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/mediaRecommend/options",
+            params={"mediaSource": "100", "channel": "movie"},
+        )
+
+    def test_recommend_items_uses_media_recommend_page_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"total": 50, "pageNum": 1, "pageSize": 25, "list": [{"title": "危险关系"}]},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+        result = manager.recommend_items(
+            media_source=200,
+            channel="movie",
+            options={"sort": "", "year": "", "tag": "", "country": ""},
+            page=1,
+            page_size=25,
+        )
+
+        assert result["total"] == 50
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/mediaRecommend/page",
+            json_body={
+                "mediaSource": 200,
+                "channel": "movie",
+                "options": {"sort": "", "year": "", "tag": "", "country": ""},
+                "pageNum": 1,
+                "pageSize": 25,
+            },
+        )
+
+    def test_recommend_options_rejects_non_list_payload(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+
+        with pytest.raises(ValueError, match="Media recommend options returned an unexpected response payload"):
+            manager.recommend_options(media_source=100, channel="movie")
+
+    def test_recommend_items_rejects_non_dict_payload(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+
+        with pytest.raises(ValueError, match="Media recommend items returned an unexpected response payload"):
+            manager.recommend_items(media_source=200, channel="movie", options={}, page=1, page_size=20)
 
 
 class TestMediaServerManager:
@@ -524,6 +769,551 @@ class TestCLI:
 
         assert result.exit_code != 0
         assert "--keyword cannot be empty" in result.output
+
+    def test_media_rank_sources_json(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(MediaManager, "rank_sources", lambda self: [{"value": 100, "text": "豆瓣"}])
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media",
+                "rank",
+                "sources",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload[0]["value"] == 100
+        assert payload[0]["text"] == "豆瓣"
+
+    def test_media_rank_sources_human_output(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(MediaManager, "rank_sources", lambda self: [{"value": 100, "text": "豆瓣"}])
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "rank",
+                "sources",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Media Rank Sources" in result.output
+        assert "豆瓣" in result.output
+
+    def test_media_rank_categories_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_rank_categories(self, media_source):
+            assert media_source == MEDIA_RANK_SOURCE_MAP["douban"]
+            return [{"code": "douban_tv", "name": "📺 电视榜单", "custom": False}]
+
+        monkeypatch.setattr(MediaManager, "rank_categories", fake_rank_categories)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media",
+                "rank",
+                "categories",
+                "--source",
+                "douban",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload[0]["code"] == "douban_tv"
+
+    def test_media_rank_subjects_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_rank_subjects(self, category_code):
+            assert category_code == "douban_tv"
+            return [{"code": "tv_domestic", "name": "热播国产剧", "custom": False, "landscape": False}]
+
+        monkeypatch.setattr(MediaManager, "rank_subjects", fake_rank_subjects)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media",
+                "rank",
+                "subjects",
+                "--category-code",
+                "douban_tv",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload[0]["code"] == "tv_domestic"
+
+    def test_media_rank_items_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_rank_items(self, category_code, code, page, page_size):
+            assert category_code == "douban_tv"
+            assert code == "tv_domestic"
+            assert page == 1
+            assert page_size == 25
+            return {
+                "total": 50,
+                "pageNum": 1,
+                "pageSize": 25,
+                "list": [{"title": "危险关系", "type": "tv", "year": 2026, "vote": 7.9, "rssId": 0, "archived": False}],
+            }
+
+        monkeypatch.setattr(MediaManager, "rank_items", fake_rank_items)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media",
+                "rank",
+                "items",
+                "--category-code",
+                "douban_tv",
+                "--code",
+                "tv_domestic",
+                "--page",
+                "1",
+                "--page-size",
+                "25",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["total"] == 50
+        assert payload["list"][0]["title"] == "危险关系"
+
+    def test_media_rank_items_human_output(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(
+            MediaManager,
+            "rank_items",
+            lambda self, category_code, code, page, page_size: {
+                "total": 50,
+                "pageNum": 1,
+                "pageSize": 25,
+                "list": [
+                    {
+                        "title": "危险关系",
+                        "subtitle": "",
+                        "type": "tv",
+                        "year": 2026,
+                        "vote": 7.9,
+                        "rssId": 400,
+                        "archived": False,
+                    }
+                ],
+            },
+        )
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "rank",
+                "items",
+                "--category-code",
+                "douban_tv",
+                "--code",
+                "tv_domestic",
+                "--page",
+                "1",
+                "--page-size",
+                "25",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Media Rank Items" in result.output
+        assert "危险关系" in result.output
+        assert "Total" in result.output
+
+    def test_media_rank_categories_requires_valid_source(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "rank",
+                "categories",
+                "--source",
+                "unknown",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "Invalid value for '--source'" in result.output
+
+    def test_media_rank_subjects_rejects_empty_category_code(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "rank",
+                "subjects",
+                "--category-code",
+                "   ",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--category-code cannot be empty" in result.output
+
+    def test_media_rank_items_rejects_empty_code(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "rank",
+                "items",
+                "--category-code",
+                "douban_tv",
+                "--code",
+                "   ",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--code cannot be empty" in result.output
+
+    def test_media_recommend_sources_json(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(MediaManager, "recommend_sources", lambda self: [{"value": 100, "text": "豆瓣"}])
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media",
+                "recommend",
+                "sources",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload[0]["value"] == 100
+
+    def test_media_recommend_channels_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_recommend_channels(self, media_source):
+            assert media_source == MEDIA_RECOMMEND_SOURCE_MAP["douban"]
+            return [{"value": "movie", "text": "电影"}]
+
+        monkeypatch.setattr(MediaManager, "recommend_channels", fake_recommend_channels)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media",
+                "recommend",
+                "channels",
+                "--source",
+                "douban",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload[0]["value"] == "movie"
+
+    def test_media_recommend_options_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_recommend_options(self, media_source, channel):
+            assert media_source == MEDIA_RECOMMEND_SOURCE_MAP["douban"]
+            assert channel == "movie"
+            return [{"id": "sort", "text": "排序", "options": [{"value": "", "text": "综合排序"}]}]
+
+        monkeypatch.setattr(MediaManager, "recommend_options", fake_recommend_options)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media",
+                "recommend",
+                "options",
+                "--source",
+                "douban",
+                "--channel",
+                "movie",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload[0]["id"] == "sort"
+
+    def test_media_recommend_items_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_recommend_items(self, media_source, channel, options, page, page_size):
+            assert media_source == MEDIA_RECOMMEND_SOURCE_MAP["tmdb"]
+            assert channel == "movie"
+            assert options == {"sort": "", "year": "", "tag": "", "country": ""}
+            assert page == 1
+            assert page_size == 25
+            return {
+                "total": 50,
+                "pageNum": 1,
+                "pageSize": 25,
+                "list": [{"title": "危险关系", "type": "tv", "year": 2026, "vote": 7.9, "rssId": 0, "archived": False}],
+            }
+
+        monkeypatch.setattr(MediaManager, "recommend_items", fake_recommend_items)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media",
+                "recommend",
+                "items",
+                "--source",
+                "tmdb",
+                "--channel",
+                "movie",
+                "--options",
+                '{"sort":"","year":"","tag":"","country":""}',
+                "--page",
+                "1",
+                "--page-size",
+                "25",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["total"] == 50
+
+    def test_media_recommend_options_human_output(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(
+            MediaManager,
+            "recommend_options",
+            lambda self, media_source, channel: [
+                {"id": "sort", "text": "排序", "options": [{"value": "", "text": "综合排序"}]}
+            ],
+        )
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "recommend",
+                "options",
+                "--source",
+                "douban",
+                "--channel",
+                "movie",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Media Recommend Options" in result.output
+        assert "排序" in result.output
+
+    def test_media_recommend_items_human_output(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(
+            MediaManager,
+            "recommend_items",
+            lambda self, media_source, channel, options, page, page_size: {
+                "total": 50,
+                "pageNum": 1,
+                "pageSize": 25,
+                "list": [
+                    {
+                        "title": "危险关系",
+                        "subtitle": "",
+                        "type": "tv",
+                        "year": 2026,
+                        "vote": 7.9,
+                        "rssId": 400,
+                        "archived": False,
+                    }
+                ],
+            },
+        )
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "recommend",
+                "items",
+                "--source",
+                "douban",
+                "--channel",
+                "movie",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Media Recommend Items" in result.output
+        assert "危险关系" in result.output
+
+    def test_media_recommend_channels_requires_valid_source(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "recommend",
+                "channels",
+                "--source",
+                "unknown",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "Invalid value for '--source'" in result.output
+
+    def test_media_recommend_options_rejects_empty_channel(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "recommend",
+                "options",
+                "--source",
+                "douban",
+                "--channel",
+                "   ",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--channel cannot be empty" in result.output
+
+    def test_media_recommend_items_rejects_invalid_options_json(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "recommend",
+                "items",
+                "--source",
+                "douban",
+                "--channel",
+                "movie",
+                "--options",
+                "{bad json}",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--options must be valid JSON" in result.output
+
+    def test_media_recommend_items_rejects_non_object_options(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media",
+                "recommend",
+                "items",
+                "--source",
+                "douban",
+                "--channel",
+                "movie",
+                "--options",
+                '[]',
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--options must be a JSON object" in result.output
 
     def test_media_server_miss_episodes_check_json(self, monkeypatch):
         runner = CliRunner()

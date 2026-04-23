@@ -15,6 +15,16 @@ error_console = Console(stderr=True)
 MEDIA_SOURCE_LABELS = {
     100: "豆瓣",
     200: "TMDB",
+    300: "芒果",
+    400: "爱奇艺",
+    500: "优酷",
+    600: "腾讯",
+    700: "灯塔",
+    800: "B站",
+    900: "Bangumi",
+    1000: "央视影音",
+    1100: "咪咕视频",
+    1300: "Letterboxd",
 }
 
 
@@ -98,6 +108,222 @@ def output_media_search(result: dict[str, Any], source: str, keyword: str) -> No
         vote_value = item.get("vote")
         vote = "-" if vote_value in (None, "") else f"{float(vote_value):.1f}"
         table.add_row(title_cell, year, media_type, source_label, vote)
+
+    console.print(table)
+
+
+def output_media_rank_sources(items: list[dict[str, Any]]) -> None:
+    console.print("[bold]Media Rank Sources[/bold]")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Source")
+    table.add_column("Value")
+
+    for item in items:
+        table.add_row(
+            str(item.get("text", "") or ""),
+            "" if item.get("value") is None else str(item.get("value")),
+        )
+
+    console.print(table)
+
+
+def output_media_rank_categories(items: list[dict[str, Any]], source: str) -> None:
+    console.print("[bold]Media Rank Categories[/bold]")
+    console.print(f"[cyan]Source[/cyan]: {source}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Code")
+    table.add_column("Name")
+    table.add_column("Custom")
+
+    for item in items:
+        table.add_row(
+            str(item.get("code", "") or ""),
+            str(item.get("name", "") or ""),
+            "yes" if item.get("custom") else "no",
+        )
+
+    console.print(table)
+
+
+def output_media_rank_subjects(items: list[dict[str, Any]], category_code: str) -> None:
+    console.print("[bold]Media Rank Subjects[/bold]")
+    console.print(f"[cyan]Category[/cyan]: {category_code}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Code")
+    table.add_column("Name")
+    table.add_column("Custom")
+    table.add_column("Landscape")
+
+    for item in items:
+        table.add_row(
+            str(item.get("code", "") or ""),
+            str(item.get("name", "") or ""),
+            "yes" if item.get("custom") else "no",
+            "yes" if item.get("landscape") else "no",
+        )
+
+    console.print(table)
+
+
+def output_media_rank_items(result: dict[str, Any], category_code: str, code: str) -> None:
+    total = result.get("total", 0)
+    page_num = result.get("pageNum", 1)
+    page_size = result.get("pageSize", 20)
+    items = result.get("list") or []
+
+    console.print("[bold]Media Rank Items[/bold]")
+    console.print(f"[cyan]Category[/cyan]: {category_code}")
+    console.print(f"[cyan]Subject[/cyan]: {code}")
+    console.print(f"[cyan]Page[/cyan]: {page_num} / [cyan]Page Size[/cyan]: {page_size} / [cyan]Total[/cyan]: {total}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Title")
+    table.add_column("Year")
+    table.add_column("Type")
+    table.add_column("Vote")
+    table.add_column("RSS")
+    table.add_column("Archived")
+
+    for item in items:
+        title = str(item.get("title", "") or "")
+        subtitle = str(item.get("subtitle", "") or "")
+        title_cell = title if not subtitle else f"{title}\n[dim]{subtitle}[/dim]"
+        year = "" if item.get("year") is None else str(item.get("year", ""))
+        media_type = str(item.get("type", "") or "")
+        vote_value = item.get("vote")
+        vote = "-" if vote_value in (None, "") else f"{float(vote_value):.1f}"
+        rss_id = item.get("rssId")
+        rss = "-" if rss_id in (None, "", 0) else str(rss_id)
+        archived = "yes" if item.get("archived") else "no"
+        table.add_row(title_cell, year, media_type, vote, rss, archived)
+
+    console.print(table)
+
+
+def output_media_recommend_sources(items: list[dict[str, Any]]) -> None:
+    console.print("[bold]Media Recommend Sources[/bold]")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Source")
+    table.add_column("Value")
+
+    for item in items:
+        table.add_row(
+            str(item.get("text", "") or ""),
+            "" if item.get("value") is None else str(item.get("value")),
+        )
+
+    console.print(table)
+
+
+def output_media_recommend_channels(items: list[dict[str, Any]], source: str) -> None:
+    console.print("[bold]Media Recommend Channels[/bold]")
+    console.print(f"[cyan]Source[/cyan]: {source}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Channel")
+    table.add_column("Value")
+
+    for item in items:
+        table.add_row(
+            str(item.get("text", "") or ""),
+            str(item.get("value", "") or ""),
+        )
+
+    console.print(table)
+
+
+def output_media_recommend_options(items: list[dict[str, Any]], source: str, channel: str) -> None:
+    console.print("[bold]Media Recommend Options[/bold]")
+    console.print(f"[cyan]Source[/cyan]: {source}")
+    console.print(f"[cyan]Channel[/cyan]: {channel}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    for group in items:
+        group_text = str(group.get("text", "") or "")
+        group_id = str(group.get("id", "") or "")
+        options = group.get("options") or []
+
+        console.print(f"[cyan]{group_text}[/cyan] ({group_id})")
+
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("Text")
+        table.add_column("Value")
+
+        for option in options:
+            table.add_row(
+                str(option.get("text", "") or ""),
+                str(option.get("value", "") or ""),
+            )
+
+        console.print(table)
+
+
+def output_media_recommend_items(result: dict[str, Any], source: str, channel: str) -> None:
+    total = result.get("total", 0)
+    page_num = result.get("pageNum", 1)
+    page_size = result.get("pageSize", 20)
+    items = result.get("list") or []
+
+    console.print("[bold]Media Recommend Items[/bold]")
+    console.print(f"[cyan]Source[/cyan]: {source}")
+    console.print(f"[cyan]Channel[/cyan]: {channel}")
+    console.print(f"[cyan]Page[/cyan]: {page_num} / [cyan]Page Size[/cyan]: {page_size} / [cyan]Total[/cyan]: {total}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Title")
+    table.add_column("Year")
+    table.add_column("Type")
+    table.add_column("Vote")
+    table.add_column("RSS")
+    table.add_column("Archived")
+
+    for item in items:
+        title = str(item.get("title", "") or "")
+        subtitle = str(item.get("subtitle", "") or "")
+        title_cell = title if not subtitle else f"{title}\n[dim]{subtitle}[/dim]"
+        year = "" if item.get("year") is None else str(item.get("year", ""))
+        media_type = str(item.get("type", "") or "")
+        vote_value = item.get("vote")
+        vote = "-" if vote_value in (None, "") else f"{float(vote_value):.1f}"
+        rss_id = item.get("rssId")
+        rss = "-" if rss_id in (None, "", 0) else str(rss_id)
+        archived = "yes" if item.get("archived") else "no"
+        table.add_row(title_cell, year, media_type, vote, rss, archived)
 
     console.print(table)
 

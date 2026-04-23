@@ -90,6 +90,70 @@ CLI 侧当前只开放两个来源映射：
 
 之所以不直接对接 `/api/v1/doubanSubject/search` 或 `/api/v1/searchTmdb/...`，是因为那两类接口返回的是更专门的数据结构，不适合作为一个统一的“媒体搜索”命令入口。
 
+### media rank
+
+媒体榜单命令组直接对接 `mediaSubject` 相关接口：
+
+- `GET /api/v1/mediaSubject/mediaSources`
+- `GET /api/v1/mediaSubject/categories/:mediaSource`
+- `GET /api/v1/mediaSubject/list?categoryCode=...`
+- `GET /api/v1/mediaSubject/items?categoryCode=...&code=...&pageNum=...&pageSize=...`
+
+CLI 侧命令面拆成：
+
+- `media rank sources`
+- `media rank categories --source <alias>`
+- `media rank subjects --category-code <code>`
+- `media rank items --category-code <code> --code <subject-code>`
+
+其中 `--source` 使用固定 alias 映射到真实平台编码：
+
+- `douban` -> `100`
+- `tmdb` -> `200`
+- `iqiyi` -> `400`
+- `dengta` -> `700`
+- `bilibili` -> `800`
+- `letterboxd` -> `1300`
+
+### media recommend
+
+媒体推荐命令组直接对接 `mediaRecommend` 相关接口：
+
+- `GET /api/v1/mediaRecommend/mediaSources`
+- `GET /api/v1/mediaRecommend/channels/:mediaSource`
+- `GET /api/v1/mediaRecommend/options?mediaSource=...&channel=...`
+- `POST /api/v1/mediaRecommend/page`
+
+CLI 侧命令面拆成：
+
+- `media recommend sources`
+- `media recommend channels --source <alias>`
+- `media recommend options --source <alias> --channel <channel>`
+- `media recommend items --source <alias> --channel <channel> --options <json>`
+
+其中 `--source` 使用固定 alias 映射到真实平台编码：
+
+- `douban` -> `100`
+- `tmdb` -> `200`
+- `mgtv` -> `300`
+- `iqiyi` -> `400`
+- `youku` -> `500`
+- `tencent` -> `600`
+- `dengta` -> `700`
+- `bilibili` -> `800`
+- `bangumi` -> `900`
+- `cctv` -> `1000`
+- `miguvideo` -> `1100`
+- `letterboxd` -> `1300`
+
+`items` 固定走 `POST /api/v1/mediaRecommend/page`，请求体包含：
+
+- `mediaSource`
+- `channel`
+- `options`
+- `pageNum`
+- `pageSize`
+
 ### media-server miss-episodes-check
 
 媒体服务漏集检查接口：

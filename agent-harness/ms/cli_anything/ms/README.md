@@ -2,7 +2,7 @@
 
 Media Saber 后端的最小可用 CLI harness。
 
-当前提供稳定连接层，以及显式业务命令 `media search`、`media-server miss-episodes-check`、`plugin call` 和 `subscribe add`。
+当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`media-server miss-episodes-check`、`plugin call` 和 `subscribe add`。
 
 ## 安装
 
@@ -58,6 +58,70 @@ JSON 输出：
 
 ```bash
 cli-anything-ms --json media search --source tmdb --keyword Interstellar
+```
+
+## 媒体榜单
+
+获取榜单来源：
+
+```bash
+cli-anything-ms media rank sources
+```
+
+获取某个平台下的榜单分类：
+
+```bash
+cli-anything-ms media rank categories --source douban
+```
+
+获取某个榜单分类下的主题：
+
+```bash
+cli-anything-ms media rank subjects --category-code douban_tv
+```
+
+获取某个榜单主题下的条目：
+
+```bash
+cli-anything-ms media rank items --category-code douban_tv --code tv_domestic --page 1 --page-size 25
+```
+
+JSON 输出：
+
+```bash
+cli-anything-ms --json media rank items --category-code douban_tv --code tv_domestic
+```
+
+## 媒体推荐
+
+获取推荐来源：
+
+```bash
+cli-anything-ms media recommend sources
+```
+
+获取某个平台下的频道：
+
+```bash
+cli-anything-ms media recommend channels --source douban
+```
+
+获取某个平台和频道下的动态选项：
+
+```bash
+cli-anything-ms media recommend options --source douban --channel movie
+```
+
+获取推荐条目：
+
+```bash
+cli-anything-ms media recommend items --source douban --channel movie --options '{"sort":"","year":"","tag":"","country":""}' --page 1 --page-size 25
+```
+
+JSON 输出：
+
+```bash
+cli-anything-ms --json media recommend items --source douban --channel movie --options '{"sort":"","year":"","tag":"","country":""}'
 ```
 
 ## 媒体服务
@@ -138,6 +202,8 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `config save-connection`
 - `config show-connection`
 - `media search`
+- `media rank`
+- `media recommend`
 - `media-server miss-episodes-check`
 - `plugin call`
 - `subscribe add`

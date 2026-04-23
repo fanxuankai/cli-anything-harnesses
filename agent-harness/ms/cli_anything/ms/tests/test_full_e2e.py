@@ -69,6 +69,54 @@ class TestCLIHelp:
         assert "--source" in result.stdout
         assert "--keyword" in result.stdout
 
+    def test_media_rank_sources_help(self):
+        result = _cli("media", "rank", "sources", "--help")
+
+        assert result.returncode == 0
+        assert "sources" in result.stdout
+
+    def test_media_rank_categories_help(self):
+        result = _cli("media", "rank", "categories", "--help")
+
+        assert result.returncode == 0
+        assert "--source" in result.stdout
+
+    def test_media_rank_subjects_help(self):
+        result = _cli("media", "rank", "subjects", "--help")
+
+        assert result.returncode == 0
+        assert "--category-code" in result.stdout
+
+    def test_media_rank_items_help(self):
+        result = _cli("media", "rank", "items", "--help")
+
+        assert result.returncode == 0
+        assert "--page-size" in result.stdout
+
+    def test_media_recommend_sources_help(self):
+        result = _cli("media", "recommend", "sources", "--help")
+
+        assert result.returncode == 0
+        assert "sources" in result.stdout
+
+    def test_media_recommend_channels_help(self):
+        result = _cli("media", "recommend", "channels", "--help")
+
+        assert result.returncode == 0
+        assert "--source" in result.stdout
+
+    def test_media_recommend_options_help(self):
+        result = _cli("media", "recommend", "options", "--help")
+
+        assert result.returncode == 0
+        assert "--channel" in result.stdout
+
+    def test_media_recommend_items_help(self):
+        result = _cli("media", "recommend", "items", "--help")
+
+        assert result.returncode == 0
+        assert "--options" in result.stdout
+
     def test_media_server_miss_episodes_check_help(self):
         result = _cli("media-server", "miss-episodes-check", "--help")
 
@@ -123,6 +171,174 @@ class TestLiveServer:
         assert result.returncode == 0
         payload = json.loads(result.stdout)
         assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
+
+    @skip_no_server
+    def test_media_rank_sources(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["media", "rank", "sources"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, list)
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_media_rank_categories(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["media", "rank", "categories", "--source", "douban"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, list)
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_media_rank_subjects(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["media", "rank", "subjects", "--category-code", "douban_tv"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, list)
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_media_rank_items(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(
+            [
+                "media",
+                "rank",
+                "items",
+                "--category-code",
+                "douban_tv",
+                "--code",
+                "tv_domestic",
+                "--page",
+                "1",
+                "--page-size",
+                "25",
+            ]
+        )
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_media_recommend_sources(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["media", "recommend", "sources"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, list)
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_media_recommend_channels(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["media", "recommend", "channels", "--source", "douban"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, list)
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_media_recommend_options(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["media", "recommend", "options", "--source", "douban", "--channel", "movie"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, list)
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_media_recommend_items(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(
+            [
+                "media",
+                "recommend",
+                "items",
+                "--source",
+                "douban",
+                "--channel",
+                "movie",
+                "--options",
+                '{"sort":"","year":"","tag":"","country":""}',
+                "--page",
+                "1",
+                "--page-size",
+                "25",
+            ]
+        )
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
+        else:
+            assert "error" in payload
 
     @skip_no_server
     def test_plugin_call_by_code(self):
