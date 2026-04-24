@@ -119,5 +119,3 @@ cli-anything-ms --json media recommend items --source <alias> --channel <channel
 - 不跳过 `options` 直接猜平台参数。
 - 不直接调用后端接口。
 - 未指定筛选项时，为当前返回的全部 option group 填空字符串。
-- 海报展示属于技能层格式化逻辑，不要要求 CLI 自己渲染图片。
-
