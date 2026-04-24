@@ -1,4 +1,4 @@
 interface:
   display_name: "MS 影视订阅"
-  short_description: "用 ms CLI 自动搜索 TMDB 并新增影视订阅"
-  default_prompt: "使用 $ms-sub 搜索 TMDB、检查现有订阅，并在需要时新增电影或电视剧订阅。"
+  short_description: "用 ms CLI 先搜索 TMDB 结果，再按需新增影视订阅"
+  default_prompt: "使用 $ms-sub 先搜索 TMDB 并展示结果；如果我明确要订阅，再检查现有订阅并新增电影或电视剧订阅。"

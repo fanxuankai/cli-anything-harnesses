@@ -97,6 +97,7 @@ def output_media_search(result: dict[str, Any], source: str, keyword: str) -> No
     table.add_column("Type")
     table.add_column("Source")
     table.add_column("Vote")
+    table.add_column("Poster")
 
     for item in items:
         title = str(item.get("title", "") or "")
@@ -107,7 +108,8 @@ def output_media_search(result: dict[str, Any], source: str, keyword: str) -> No
         source_label = MEDIA_SOURCE_LABELS.get(item.get("source"), str(item.get("source", "")))
         vote_value = item.get("vote")
         vote = "-" if vote_value in (None, "") else f"{float(vote_value):.1f}"
-        table.add_row(title_cell, year, media_type, source_label, vote)
+        poster = item.get("poster")
+        table.add_row(title_cell, year, media_type, source_label, vote, poster)
 
     console.print(table)
 
