@@ -111,18 +111,6 @@ cli-anything-ms --json media recommend items --source <alias> --channel <channel
 - 入库状态
 - 海报
 
-如果条目里有 `poster` URL，优先按下面的顺序展示：
-
-1. 当前环境支持 Markdown 图片时，输出：
-
-   ```md
-   ![海报](<poster-url>)
-   ```
-
-2. 当前环境不支持图片渲染时，退回为：
-   - `海报：有`
-   - 或直接给出海报 URL
-
 如果用户明确要求看原始结果，再补充原始 JSON。
 
 ## 注意事项
@@ -132,3 +120,4 @@ cli-anything-ms --json media recommend items --source <alias> --channel <channel
 - 不直接调用后端接口。
 - 未指定筛选项时，为当前返回的全部 option group 填空字符串。
 - 海报展示属于技能层格式化逻辑，不要要求 CLI 自己渲染图片。
+
