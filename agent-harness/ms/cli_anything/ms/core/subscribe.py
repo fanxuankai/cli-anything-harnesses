@@ -43,6 +43,23 @@ class SubscribeManager:
             raise ValueError("Subscribe default config returned an unexpected response payload")
         return response.data
 
+    def page(self, media_type: str, page: int, page_size: int) -> dict[str, Any]:
+        response = self.client.request(
+            "GET",
+            "/api/v1/subscribe/page",
+            params={
+                "type": media_type,
+                "pageNum": str(page),
+                "pageSize": str(page_size),
+            },
+        )
+        if not response.ok:
+            message = response.message or f"Subscribe page failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if not isinstance(response.data, dict):
+            raise ValueError("Subscribe page returned an unexpected response payload")
+        return response.data
+
     def add(self, name: str, media_type: str, year: int, season: int | None = None) -> dict[str, Any]:
         default_config = self.get_default_config(media_type)
         if default_config is None:

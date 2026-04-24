@@ -20,12 +20,14 @@
 - `MediaServerManager.miss_episodes_check` 的路径访问与输出格式
 - `plugin call` 的 JSON 解析、请求路径和输出格式
 - `SubscribeManager.get_default_config` 的 detail 路径访问
+- `SubscribeManager.page` 的 page 路径访问与参数拼装
 - `SubscribeManager.add` 的默认配置合并与 save 请求
 - `ApiResponse` 对标准 `code/message/data` 的解包
 - 非标准响应的保留
 - `media search` 的 JSON 输出、人类可读表格输出、空结果和参数校验
 - `media rank` 的 JSON 输出、人类可读表格输出、分页参数和参数校验
 - `media recommend` 的 JSON 输出、人类可读表格输出、JSON options 解析和分页参数校验
+- `subscribe page` 的 JSON 输出、人类可读表格输出和分页参数校验
 - `subscribe add` 的最小参数、TV 默认 season、movie 不允许 season、空白 name 校验
 
 运行方式：
@@ -52,6 +54,7 @@ pytest cli_anything/ms/tests/test_core.py -v
 - `cli-anything-ms media recommend items --help`
 - `cli-anything-ms media-server miss-episodes-check --help`
 - `cli-anything-ms plugin call --help`
+- `cli-anything-ms subscribe page --help`
 - `cli-anything-ms subscribe add --help`
 - `cli-anything-ms config save-connection`
 - 已安装命令与 `python -m cli_anything.ms` 入口兼容
@@ -102,6 +105,10 @@ cli-anything-ms --json media-server miss-episodes-check
 
 ```bash
 cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"action":"get_recent_state","body":{}}'
+```
+
+```bash
+cli-anything-ms --json subscribe page --type movie --page 1 --page-size 99
 ```
 
 运行方式：

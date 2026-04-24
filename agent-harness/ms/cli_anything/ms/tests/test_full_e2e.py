@@ -137,6 +137,13 @@ class TestCLIHelp:
         assert "--name" in result.stdout
         assert "--year" in result.stdout
 
+    def test_subscribe_page_help(self):
+        result = _cli("subscribe", "page", "--help")
+
+        assert result.returncode == 0
+        assert "--type" in result.stdout
+        assert "--page-size" in result.stdout
+
 
 class TestConfigPersistence:
 
@@ -382,5 +389,41 @@ class TestLiveServer:
             assert isinstance(payload, dict)
             assert "total" in payload
             assert "items" in payload
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_subscribe_page_movie(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["subscribe", "page", "--type", "movie", "--page", "1", "--page-size", "99"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_subscribe_page_tv(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["subscribe", "page", "--type", "tv", "--page", "1", "--page-size", "99"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
         else:
             assert "error" in payload

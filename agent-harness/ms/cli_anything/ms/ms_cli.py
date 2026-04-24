@@ -33,6 +33,7 @@ from .utils.output import (
     output_media_server_miss_episodes,
     output_plugin_call,
     output_subscribe_add,
+    output_subscribe_page,
 )
 
 
@@ -687,6 +688,43 @@ def subscribe_add(
             output_json(result)
         else:
             output_subscribe_add(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@subscribe.command("page")
+@click.option(
+    "--type",
+    "media_type",
+    type=click.Choice(MEDIA_TYPE_CHOICES, case_sensitive=False),
+    required=True,
+    help="Subscribe media type",
+)
+@click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
+@click.option(
+    "--page-size",
+    type=click.IntRange(min=1),
+    default=20,
+    show_default=True,
+    help="Page size",
+)
+@pass_ctx
+def subscribe_page(ctx: Context, media_type: str, page: int, page_size: int) -> None:
+    """按类型分页查询订阅。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        media_type = media_type.lower()
+        result = ctx.subscribe_mgr.page(media_type=media_type, page=page, page_size=page_size)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_subscribe_page(result, media_type=media_type)
     except SystemExit:
         raise
     except Exception as exc:

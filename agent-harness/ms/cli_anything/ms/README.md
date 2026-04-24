@@ -158,6 +158,24 @@ JSON 输出：
 cli-anything-ms --json subscribe add --type movie --name "Interstellar" --year 2014
 ```
 
+## 订阅分页
+
+按类型分页查询订阅：
+
+```bash
+cli-anything-ms subscribe page --type movie --page 1 --page-size 99
+```
+
+```bash
+cli-anything-ms subscribe page --type tv --page 1 --page-size 99
+```
+
+JSON 输出：
+
+```bash
+cli-anything-ms --json subscribe page --type movie --page 1 --page-size 99
+```
+
 ## REPL
 
 在交互终端中直接运行 `cli-anything-ms` 会进入 REPL：
@@ -206,6 +224,7 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `media recommend`
 - `media-server miss-episodes-check`
 - `plugin call`
+- `subscribe page`
 - `subscribe add`
 
 暂不支持：

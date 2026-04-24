@@ -583,6 +583,49 @@ class TestSubscribeManager:
         assert "mediums" not in result["subscribe"]
         assert client.request.call_args_list[1].kwargs["json_body"]["searchSites"] == [22]
 
+    def test_page_uses_subscribe_page_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"total": 1, "pageNum": 1, "pageSize": 99, "list": [{"name": "Interstellar"}]},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = SubscribeManager(client)
+        result = manager.page(media_type="movie", page=1, page_size=99)
+
+        assert result["total"] == 1
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/subscribe/page",
+            params={
+                "type": "movie",
+                "pageNum": "1",
+                "pageSize": "99",
+            },
+        )
+
+    def test_page_rejects_non_dict_payload(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = SubscribeManager(client)
+
+        with pytest.raises(ValueError, match="Subscribe page returned an unexpected response payload"):
+            manager.page(media_type="movie", page=1, page_size=20)
+
 
 class TestCLI:
 
@@ -1841,3 +1884,96 @@ class TestCLI:
 
         assert result.exit_code != 0
         assert "--name cannot be empty" in result.output
+
+    def test_subscribe_page_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_page(self, media_type, page, page_size):
+            assert media_type == "movie"
+            assert page == 1
+            assert page_size == 99
+            return {
+                "total": 1,
+                "pageNum": 1,
+                "pageSize": 99,
+                "list": [
+                    {
+                        "name": "Interstellar",
+                        "type": "movie",
+                        "year": 2014,
+                        "status": 100,
+                        "tmdbId": 157336,
+                    }
+                ],
+            }
+
+        monkeypatch.setattr(SubscribeManager, "page", fake_page)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "subscribe",
+                "page",
+                "--type",
+                "movie",
+                "--page",
+                "1",
+                "--page-size",
+                "99",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["total"] == 1
+        assert payload["list"][0]["name"] == "Interstellar"
+
+    def test_subscribe_page_human_output(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(
+            SubscribeManager,
+            "page",
+            lambda self, media_type, page, page_size: {
+                "total": 1,
+                "pageNum": 1,
+                "pageSize": 99,
+                "list": [
+                    {
+                        "name": "Breaking Bad",
+                        "type": "tv",
+                        "year": 2008,
+                        "season": 1,
+                        "status": 200,
+                        "tmdbId": 1396,
+                    }
+                ],
+            },
+        )
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "subscribe",
+                "page",
+                "--type",
+                "tv",
+                "--page",
+                "1",
+                "--page-size",
+                "99",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Subscribe Page" in result.output
+        assert "Type" in result.output
+        assert "Breaking Bad" in result.output
+        assert "订阅运行中" in result.output

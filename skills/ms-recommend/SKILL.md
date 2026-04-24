@@ -1,6 +1,6 @@
 ---
 name: ms-recommend
-description: 查看 Media Saber 影视推荐时使用，例如“影视推荐”“推荐电影”“豆瓣电影推荐”“TMDB 高分电影推荐”“推荐 2025 年动作片”。这个技能会通过 `cli-anything-ms` 逐步查询推荐来源、频道、动态选项和推荐条目，并输出简洁摘要。
+description: 查看 ms 影视推荐时使用，例如“影视推荐”“推荐电影”“豆瓣电影推荐”“TMDB 高分电影推荐”“推荐 2025 年动作片”。这个技能会通过 `cli-anything-ms` 逐步查询推荐来源、频道、动态选项和推荐条目，并输出简洁摘要。
 ---
 
 # MS Recommend

@@ -12,6 +12,11 @@ from ..core.client import ApiResponse
 
 console = Console()
 error_console = Console(stderr=True)
+SUBSCRIBE_STATUS_LABELS = {
+    100: "订阅就绪",
+    200: "订阅运行中",
+    300: "订阅已完成",
+}
 MEDIA_SOURCE_LABELS = {
     100: "豆瓣",
     200: "TMDB",
@@ -339,6 +344,44 @@ def output_subscribe_add(result: dict[str, Any]) -> None:
     if subscribe.get("type") == "tv":
         console.print(f"[cyan]season[/cyan]: {subscribe.get('season', '')}")
     console.print("[cyan]status[/cyan]: 已按默认配置提交")
+
+
+def output_subscribe_page(result: dict[str, Any], media_type: str) -> None:
+    total = result.get("total", 0)
+    page_num = result.get("pageNum", 1)
+    page_size = result.get("pageSize", 20)
+    items = result.get("list") or []
+
+    console.print("[bold]Subscribe Page[/bold]")
+    console.print(f"[cyan]Type[/cyan]: {media_type}")
+    console.print(f"[cyan]Page[/cyan]: {page_num} / [cyan]Page Size[/cyan]: {page_size} / [cyan]Total[/cyan]: {total}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Name")
+    table.add_column("Year")
+    table.add_column("Type")
+    table.add_column("Season")
+    table.add_column("Status")
+    table.add_column("TMDB")
+
+    for item in items:
+        status_value = item.get("status")
+        status_text = SUBSCRIBE_STATUS_LABELS.get(status_value, "" if status_value in (None, "") else str(status_value))
+        season_value = item.get("season") if item.get("type") == "tv" else ""
+        table.add_row(
+            str(item.get("name", "") or ""),
+            "" if item.get("year") is None else str(item.get("year", "")),
+            str(item.get("type", "") or ""),
+            "" if season_value in (None, "") else str(season_value),
+            status_text,
+            "" if item.get("tmdbId") is None else str(item.get("tmdbId", "")),
+        )
+
+    console.print(table)
 
 
 def _print_data(data: Any) -> None:

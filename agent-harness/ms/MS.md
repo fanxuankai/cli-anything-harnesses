@@ -198,6 +198,16 @@ CLI 侧命令面拆成：
 1. 先读取 `movie` / `tv` 默认订阅配置
 2. 在客户端侧合并必要默认字段，再提交到 `/api/v1/subscribe/save`
 
+订阅分页接口：
+
+- `GET /api/v1/subscribe/page`
+
+当前 `subscribe page` 只暴露最小参数：
+
+- `type`
+- `pageNum`
+- `pageSize`
+
 默认配置读取仅作为 `subscribe add` 的内部实现细节，不单独暴露成 CLI 子命令。
 
 当前 `subscribe add` 只做最小新增：
