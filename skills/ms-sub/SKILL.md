@@ -1,6 +1,6 @@
 ---
 name: ms-sub
-description: Media Saber 订阅电影或电视剧时使用，例如“订阅电影流浪地球”“订阅电视剧西游记”或“检查 XXX 有没有订阅，没有就订阅”。这个技能会通过 `cli-anything-ms` 固定搜索 TMDB、检查现有订阅，并且只在尚未订阅时新增订阅。
+description: Media Saber 订阅电影或电视剧时使用，例如“订阅电影流浪地球”“订阅电视剧西游记”“搜索电影流浪地球”或“检查 XXX 有没有订阅，没有就订阅”。这个技能会通过 `cli-anything-ms` 固定搜索 TMDB、检查现有订阅，并且只在尚未订阅时新增订阅。
 ---
 
 # MS Sub
