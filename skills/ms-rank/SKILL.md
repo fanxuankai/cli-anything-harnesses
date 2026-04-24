@@ -92,7 +92,7 @@ cli-anything-ms --json media rank items --category-code <code> --code <subject-c
 - 评分
 - 是否已订阅
 - 是否已入库
-- 海报
+- `![海报](poster)`
 
 如果用户明确要求看原始结果，再补充原始 JSON。
 

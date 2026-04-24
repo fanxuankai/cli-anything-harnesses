@@ -109,7 +109,7 @@ cli-anything-ms --json media recommend items --source <alias> --channel <channel
 - 评分
 - RSS
 - 入库状态
-- 海报
+- `![海报](poster)`
 
 如果用户明确要求看原始结果，再补充原始 JSON。
 
