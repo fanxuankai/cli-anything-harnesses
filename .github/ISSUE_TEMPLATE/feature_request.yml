@@ -1,0 +1,41 @@
+name: Feature request
+description: Request a new command, skill, or repository improvement.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - cli-anything-ms
+        - cli-anything-cliproxyapi
+        - skills
+        - GitHub / docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow should this improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the command, skill behavior, or docs change you want.
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Example usage
+      render: bash
+      placeholder: |
+        cli-anything-ms --json ...
+    validations:
+      required: false

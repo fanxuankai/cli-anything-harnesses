@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a bug in a harness, skill, or repository workflow.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - cli-anything-ms
+        - cli-anything-cliproxyapi
+        - skills
+        - GitHub / docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and the expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      render: bash
+      placeholder: |
+        cli-anything-ms --json ...
+    validations:
+      required: false
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or logs
+      description: Remove tokens, cookies, private URLs, and personal data before pasting logs.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: cli-anything-ms 0.5.3
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Python version, OS, install method, relevant backend version.
+    validations:
+      required: false
