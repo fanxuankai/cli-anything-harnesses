@@ -58,6 +58,17 @@ hermes skills install fanxuankai/cli-anything-harnesses/skills/ms-sub --force
 GITHUB_TOKEN=你的 Github PAT
 ```
 
+## Hermes 通知
+
+`.github/workflows/notify-hermes.yml` 会在 `skills/**` 变更推送到 `main` 后通知 Hermes webhook。
+
+需要在 GitHub 仓库 Secrets 中配置：
+
+- `HERMES_WEBHOOK_URL`：Hermes 接收 skill 更新通知的 HTTP 地址。
+- `HERMES_WEBHOOK_TOKEN`：可选。配置后会用 `Authorization: Bearer <token>` 发送。
+
+通知 payload 包含 `repository`、`ref`、`sha`、`changed_files`、`skills` 和 `run_url`。如果未配置 `HERMES_WEBHOOK_URL`，workflow 会跳过通知。
+
 ## Local Development
 
 从源码安装两个 harness：

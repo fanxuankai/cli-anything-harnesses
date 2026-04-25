@@ -1,5 +1,18 @@
 ## 发布
 
+### Hermes 通知
+
+GitHub Actions 会在 `skills/**` 变更推送到 `main` 后运行 `.github/workflows/notify-hermes.yml`。
+
+GitHub 仓库 Secrets：
+
+```text
+HERMES_WEBHOOK_URL=https://...
+HERMES_WEBHOOK_TOKEN=可选
+```
+
+payload 会带 `repository`、`ref`、`sha`、`changed_files`、`skills` 和 `run_url`。
+
 ### GitHub Actions
 
 PyPI 自动发布走 `.github/workflows/publish-pypi.yml`。

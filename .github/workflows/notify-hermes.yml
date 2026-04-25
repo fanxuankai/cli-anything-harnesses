@@ -1,0 +1,107 @@
+name: Notify Hermes
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "skills/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build Hermes payload
+        id: payload
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          before = os.environ.get("GITHUB_EVENT_BEFORE", "")
+          after = os.environ["GITHUB_SHA"]
+          if before and before != "0000000000000000000000000000000000000000":
+              diff_range = f"{before}..{after}"
+          else:
+              diff_range = "HEAD~1..HEAD"
+
+          try:
+              changed = subprocess.check_output(
+                  ["git", "diff", "--name-only", diff_range, "--", "skills"],
+                  text=True,
+              ).splitlines()
+          except subprocess.CalledProcessError:
+              changed = []
+
+          skill_names = sorted(
+              {
+                  Path(path).parts[1]
+                  for path in changed
+                  if len(Path(path).parts) >= 2 and Path(path).parts[0] == "skills"
+              }
+          )
+
+          payload = {
+              "event": "skills_changed",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "ref": os.environ["GITHUB_REF"],
+              "sha": after,
+              "changed_files": changed,
+              "skills": skill_names,
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+          }
+
+          output_path = Path(os.environ["RUNNER_TEMP"]) / "hermes-payload.json"
+          output_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"payload_path={output_path}\n")
+              output.write(f"skill_count={len(skill_names)}\n")
+          PY
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+
+      - name: Show Hermes payload
+        run: |
+          cat "${{ steps.payload.outputs.payload_path }}"
+
+      - name: Notify Hermes webhook
+        if: ${{ steps.payload.outputs.skill_count != '0' }}
+        env:
+          HERMES_WEBHOOK_URL: ${{ secrets.HERMES_WEBHOOK_URL }}
+          HERMES_WEBHOOK_TOKEN: ${{ secrets.HERMES_WEBHOOK_TOKEN }}
+          PAYLOAD_PATH: ${{ steps.payload.outputs.payload_path }}
+        run: |
+          if [ -z "$HERMES_WEBHOOK_URL" ]; then
+            echo "HERMES_WEBHOOK_URL is not configured; skip Hermes notification."
+            exit 0
+          fi
+
+          args=(
+            --fail
+            --show-error
+            --silent
+            --request POST
+            --header "Content-Type: application/json"
+            --data-binary "@${PAYLOAD_PATH}"
+          )
+
+          if [ -n "$HERMES_WEBHOOK_TOKEN" ]; then
+            args+=(--header "Authorization: Bearer ${HERMES_WEBHOOK_TOKEN}")
+          fi
+
+          curl "${args[@]}" "$HERMES_WEBHOOK_URL"
