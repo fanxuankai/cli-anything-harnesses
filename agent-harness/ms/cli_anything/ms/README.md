@@ -2,7 +2,7 @@
 
 ms 后端的最小可用 CLI harness。
 
-当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download/rank`、`media-server miss-episodes-check`、`plugin call` 和 `subscribe add`。
+当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download/rank`、`media-server`、`plugin call` 和 `subscribe add`。
 
 ## 安装
 
@@ -126,6 +126,46 @@ cli-anything-ms --json media recommend items --source douban --channel movie --o
 
 ## 媒体服务
 
+查看媒体服务器列表和同步统计：
+
+```bash
+cli-anything-ms media-server list
+```
+
+查看某台媒体服务器的媒体库：
+
+```bash
+cli-anything-ms media-server libraries --id 1
+```
+
+查看同步明细：
+
+```bash
+cli-anything-ms media-server sync-items --id 1 --page 1 --page-size 20
+```
+
+按标题、类型或漏集过滤同步明细：
+
+```bash
+cli-anything-ms media-server sync-items --id 1 --title "猎罪" --type tv --miss-eps true
+```
+
+查看正在播放、最近添加和继续观看：
+
+```bash
+cli-anything-ms media-server playing --id 1
+cli-anything-ms media-server latest --id 1 --num 12
+cli-anything-ms media-server resume --id 1 --num 12
+```
+
+发起媒体库同步任务：
+
+```bash
+cli-anything-ms media-server sync-run --id 1
+```
+
+`sync-run` 只提交同步任务，不等待同步完成。
+
 检查媒体服务中的电视剧漏集：
 
 ```bash
@@ -135,7 +175,8 @@ cli-anything-ms media-server miss-episodes-check
 JSON 输出：
 
 ```bash
-cli-anything-ms --json media-server miss-episodes-check
+cli-anything-ms --json media-server list
+cli-anything-ms --json media-server sync-items --id 1 --page 1 --page-size 20
 ```
 
 ## 订阅新增
@@ -285,6 +326,15 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `cloud-resource search`
 - `cloud-resource download`
 - `cloud-resource rank`
+- `media-server list`
+- `media-server detail`
+- `media-server libraries`
+- `media-server statistics`
+- `media-server sync-items`
+- `media-server playing`
+- `media-server latest`
+- `media-server resume`
+- `media-server sync-run`
 - `media-server miss-episodes-check`
 - `plugin call`
 - `subscribe page`

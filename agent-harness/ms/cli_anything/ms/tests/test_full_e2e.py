@@ -123,6 +123,25 @@ class TestCLIHelp:
         assert result.returncode == 0
         assert "miss-episodes-check" in result.stdout
 
+    def test_media_server_list_help(self):
+        result = _cli("media-server", "list", "--help")
+
+        assert result.returncode == 0
+        assert "list" in result.stdout
+
+    def test_media_server_sync_items_help(self):
+        result = _cli("media-server", "sync-items", "--help")
+
+        assert result.returncode == 0
+        assert "--miss-eps" in result.stdout
+        assert "--page-size" in result.stdout
+
+    def test_media_server_sync_run_help(self):
+        result = _cli("media-server", "sync-run", "--help")
+
+        assert result.returncode == 0
+        assert "--id" in result.stdout
+
     def test_cloud_resource_search_help(self):
         result = _cli("cloud-resource", "search", "--help")
 
@@ -454,6 +473,25 @@ class TestLiveServer:
         if MS_API_KEY:
             args.extend(["--apikey", MS_API_KEY])
         args.extend(["media-server", "miss-episodes-check"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert "total" in payload
+            assert "items" in payload
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_media_server_list(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["media-server", "list"])
         result = _cli(*args)
 
         assert result.returncode in {0, 1}

@@ -18,6 +18,7 @@ from .core.cloud_resource import CLOUD_RESOURCE_RANK_RANGE_CHOICES, CLOUD_RESOUR
 from .core.cloud_resource import MEDIA_TYPE_CHOICES as CLOUD_RESOURCE_MEDIA_TYPE_CHOICES
 from .core.cloud_resource import CloudResourceManager
 from .core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
+from .core.media_server import MEDIA_TYPE_CHOICES as MEDIA_SERVER_MEDIA_TYPE_CHOICES
 from .core.media_server import MediaServerManager
 from .core.subscribe import MEDIA_TYPE_CHOICES as SUBSCRIBE_MEDIA_TYPE_CHOICES
 from .core.subscribe import SubscribeManager
@@ -37,7 +38,14 @@ from .utils.output import (
     output_media_recommend_options,
     output_media_recommend_sources,
     output_media_search,
+    output_media_server_detail,
+    output_media_server_libraries,
+    output_media_server_list,
+    output_media_server_media_items,
     output_media_server_miss_episodes,
+    output_media_server_statistics,
+    output_media_server_sync_items,
+    output_media_server_sync_run,
     output_plugin_call,
     output_subscribe_add,
     output_subscribe_page,
@@ -582,6 +590,231 @@ def media_recommend_items(
 @pass_ctx
 def media_server(ctx: Context) -> None:
     """媒体服务命令。"""
+
+
+@media_server.command("list")
+@pass_ctx
+def media_server_list(ctx: Context) -> None:
+    """查看媒体服务器列表和同步统计。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.list()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_list(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_server.command("detail")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
+@pass_ctx
+def media_server_detail(ctx: Context, server_id: int) -> None:
+    """查看媒体服务器详情。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.detail(server_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_detail(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_server.command("libraries")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
+@pass_ctx
+def media_server_libraries(ctx: Context, server_id: int) -> None:
+    """查看媒体服务器媒体库。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.libraries(server_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_libraries(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_server.command("statistics")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
+@pass_ctx
+def media_server_statistics(ctx: Context, server_id: int) -> None:
+    """查看媒体服务器同步统计。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.statistics(server_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_statistics(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_server.command("sync-items")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
+@click.option("--title", help="Title filter")
+@click.option(
+    "--type",
+    "media_type",
+    type=click.Choice(MEDIA_SERVER_MEDIA_TYPE_CHOICES, case_sensitive=False),
+    help="Media type",
+)
+@click.option("--miss-eps", type=click.Choice(("true", "false"), case_sensitive=False), help="Filter missing episodes")
+@click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
+@click.option("--page-size", type=click.IntRange(min=1), default=20, show_default=True, help="Page size")
+@pass_ctx
+def media_server_sync_items(
+    ctx: Context,
+    server_id: int,
+    title: Optional[str],
+    media_type: Optional[str],
+    miss_eps: Optional[str],
+    page: int,
+    page_size: int,
+) -> None:
+    """查看媒体服务器同步明细。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        miss_eps_value = None if miss_eps is None else miss_eps.lower() == "true"
+        result = ctx.media_server_mgr.sync_items(
+            server_id,
+            title=title,
+            media_type=media_type.lower() if media_type else None,
+            miss_eps=miss_eps_value,
+            page=page,
+            page_size=page_size,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_sync_items(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_server.command("playing")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
+@pass_ctx
+def media_server_playing(ctx: Context, server_id: int) -> None:
+    """查看正在播放。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.playing(server_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_media_items(result, "Media Server Playing")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_server.command("latest")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
+@click.option("--num", type=click.IntRange(min=1), default=12, show_default=True, help="Item count")
+@pass_ctx
+def media_server_latest(ctx: Context, server_id: int, num: int) -> None:
+    """查看最近添加。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.latest(server_id, num=num)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_media_items(result, "Media Server Latest")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_server.command("resume")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
+@click.option("--num", type=click.IntRange(min=1), default=12, show_default=True, help="Item count")
+@pass_ctx
+def media_server_resume(ctx: Context, server_id: int, num: int) -> None:
+    """查看继续观看。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.resume(server_id, num=num)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_media_items(result, "Media Server Resume")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_server.command("sync-run")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
+@pass_ctx
+def media_server_sync_run(ctx: Context, server_id: int) -> None:
+    """发起媒体服务器同步任务。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.sync_run(server_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_sync_run(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
 
 
 @media_server.command("miss-episodes-check")

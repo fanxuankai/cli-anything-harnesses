@@ -607,6 +607,221 @@ class TestMediaManager:
 
 class TestMediaServerManager:
 
+    def test_list_uses_media_server_list_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[
+                {
+                    "id": 1,
+                    "name": "专线",
+                    "type": 100,
+                    "enabled": True,
+                    "default": True,
+                    "updatedAt": 1711266685,
+                    "statistics": {
+                        "id": 11,
+                        "mediaServerId": 1,
+                        "movieCount": 11980,
+                        "tvCount": 2880,
+                        "time": 107401,
+                        "updatedAt": 1777132907,
+                    },
+                }
+            ],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = MediaServerManager(client).list()
+
+        assert result["total"] == 1
+        assert result["items"][0]["type_text"] == "Emby"
+        assert result["items"][0]["statistics"]["movie_count"] == 11980
+        assert result["items"][0]["statistics"]["time_seconds"] == 107.401
+        client.request.assert_called_once_with("GET", "/api/v1/mediaServer/list")
+
+    def test_detail_libraries_statistics_and_media_items_use_expected_endpoints(self):
+        client = MagicMock()
+        client.request.side_effect = [
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={"id": 1, "name": "专线", "type": 500, "enabled": True, "default": False},
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data=[{"id": "lib-1", "name": "Movies", "paths": ["/media/movies"], "mediaType": "movie", "link": "http://example.test"}],
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={"mediaServerId": 1, "movieCount": 10, "tvCount": 2, "time": 1500},
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data=[{"id": "p1", "name": "片名", "type": "movie", "link": "http://play.test", "percent": 42.5}],
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data=[{"id": "l1", "name": "最新", "type": "tv", "link": "http://latest.test"}],
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data=[{"id": "r1", "name": "继续", "type": "tv", "link": "http://resume.test", "percent": 80}],
+                raw_body={},
+                is_standard_response=True,
+            ),
+        ]
+
+        manager = MediaServerManager(client)
+        assert manager.detail(1)["type_text"] == "Plex"
+        assert manager.libraries(1)["items"][0]["paths"] == ["/media/movies"]
+        assert manager.statistics(1)["time_seconds"] == 1.5
+        assert manager.playing(1)["items"][0]["percent"] == 42.5
+        assert manager.latest(1, num=5)["items"][0]["name"] == "最新"
+        assert manager.resume(1, num=6)["items"][0]["percent"] == 80.0
+
+        client.request.assert_any_call("GET", "/api/v1/mediaServer/detail/1")
+        client.request.assert_any_call("GET", "/api/v1/mediaServer/libraries/1")
+        client.request.assert_any_call("GET", "/api/v1/mediaServerSync/statistics/1")
+        client.request.assert_any_call("GET", "/api/v1/mediaServer/playing/1", params=None)
+        client.request.assert_any_call("GET", "/api/v1/mediaServer/latest/1", params={"num": "5"})
+        client.request.assert_any_call("GET", "/api/v1/mediaServer/resume/1", params={"num": "6"})
+
+    def test_sync_items_passes_filters_and_normalizes_page(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={
+                "total": 1,
+                "pageNum": 2,
+                "pageSize": 5,
+                "list": [
+                    {
+                        "id": 99,
+                        "mediaServerId": 1,
+                        "libraryName": "电视剧",
+                        "itemType": "tv",
+                        "title": "猎罪图鉴",
+                        "year": 2022,
+                        "tmdbId": 139797,
+                        "imdbId": "tt123",
+                        "path": "/tv/猎罪图鉴",
+                        "size": 2147483648,
+                        "episodes": [{"season": 1, "episodes": [1, 2, 3, 5]}],
+                        "missEps": True,
+                        "createdAt": 1711266685,
+                        "updatedAt": 1711266686,
+                    }
+                ],
+            },
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = MediaServerManager(client).sync_items(
+            1,
+            title="猎罪",
+            media_type="tv",
+            miss_eps=True,
+            page=2,
+            page_size=5,
+        )
+
+        assert result["total"] == 1
+        assert result["list"][0]["title"] == "猎罪图鉴"
+        assert result["list"][0]["size_text"] == "2.00 GB"
+        assert result["list"][0]["episodes_text"] == "S01:E1-3, E5"
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/mediaServerSync/items/1",
+            params={
+                "pageNum": "2",
+                "pageSize": "5",
+                "title": "猎罪",
+                "mediaType": "tv",
+                "missEps": "true",
+            },
+        )
+
+    def test_sync_run_submits_server_sync(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=True,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = MediaServerManager(client).sync_run(1)
+
+        assert result["status"] == "submitted"
+        assert result["server_id"] == 1
+        client.request.assert_called_once_with("GET", "/api/v1/mediaServerSync/run/1")
+
+    def test_media_server_methods_reject_unexpected_payloads(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"not": "a-list"},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        with pytest.raises(ValueError, match="Media server list returned an unexpected response payload"):
+            MediaServerManager(client).list()
+
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[],
+            raw_body={},
+            is_standard_response=True,
+        )
+        with pytest.raises(ValueError, match="Media server sync items returned an unexpected response payload"):
+            MediaServerManager(client).sync_items(1)
+
     def test_miss_episodes_check_uses_media_server_endpoint(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(
@@ -2093,6 +2308,168 @@ class TestCLI:
         assert payload["total"] == 1
         assert payload["items"][0]["title"] == "猎罪图鉴"
         assert payload["items"][0]["episodes"][0]["missEpisodes"] == [7]
+
+    def test_media_server_list_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_list(self):
+            return {
+                "total": 1,
+                "items": [
+                    {
+                        "id": 1,
+                        "name": "专线",
+                        "type": 100,
+                        "type_text": "Emby",
+                        "enabled": True,
+                        "default": True,
+                        "updated_at_text": "2026-03-24 17:51:25",
+                        "statistics": {
+                            "movie_count": 11980,
+                            "tv_count": 2880,
+                            "time_seconds": 107.401,
+                            "updated_at_text": "2026-04-26 00:01:47",
+                        },
+                    }
+                ],
+            }
+
+        monkeypatch.setattr(MediaServerManager, "list", fake_list)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media-server",
+                "list",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["items"][0]["name"] == "专线"
+        assert payload["items"][0]["statistics"]["movie_count"] == 11980
+
+    def test_media_server_list_command_human_output(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(
+            MediaServerManager,
+            "list",
+            lambda self: {
+                "total": 1,
+                "items": [
+                    {
+                        "id": 1,
+                        "name": "专线",
+                        "type_text": "Emby",
+                        "enabled": True,
+                        "default": True,
+                        "updated_at_text": "2026-03-24 17:51:25",
+                        "statistics": {
+                            "movie_count": 11980,
+                            "tv_count": 2880,
+                            "time_seconds": 107.401,
+                            "updated_at_text": "2026-04-26 00:01:47",
+                        },
+                    }
+                ],
+            },
+        )
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "media-server",
+                "list",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Media Servers" in result.output
+        assert "专线" in result.output
+        assert "11980" in result.output
+
+    def test_media_server_sync_items_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_sync_items(self, server_id, *, title, media_type, miss_eps, page, page_size):
+            assert server_id == 1
+            assert title == "猎罪"
+            assert media_type == "tv"
+            assert miss_eps is False
+            assert page == 2
+            assert page_size == 5
+            return {
+                "total": 1,
+                "pageNum": 2,
+                "pageSize": 5,
+                "list": [{"title": "猎罪图鉴", "item_type": "tv", "miss_eps": False}],
+            }
+
+        monkeypatch.setattr(MediaServerManager, "sync_items", fake_sync_items)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media-server",
+                "sync-items",
+                "--id",
+                "1",
+                "--title",
+                "猎罪",
+                "--type",
+                "tv",
+                "--miss-eps",
+                "false",
+                "--page",
+                "2",
+                "--page-size",
+                "5",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["list"][0]["title"] == "猎罪图鉴"
+
+    def test_media_server_sync_run_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(
+            MediaServerManager,
+            "sync_run",
+            lambda self, server_id: {"status": "submitted", "server_id": server_id, "response": True, "message": "SUCCESS"},
+        )
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media-server",
+                "sync-run",
+                "--id",
+                "1",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["status"] == "submitted"
+        assert payload["server_id"] == 1
 
     def test_media_server_miss_episodes_check_human_output(self, monkeypatch):
         runner = CliRunner()

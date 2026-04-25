@@ -572,8 +572,168 @@ def output_media_server_miss_episodes(result: dict[str, Any]) -> None:
             console.print(f"  Season {season} / Total {total} / Missing: {missing_text}")
 
 
+def output_media_server_list(result: dict[str, Any]) -> None:
+    console.print("[bold]Media Servers[/bold]")
+    items = result.get("items") or []
+    console.print(f"Total: {result.get('total', len(items))}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("ID")
+    table.add_column("Type")
+    table.add_column("Name")
+    table.add_column("Enabled")
+    table.add_column("Default")
+    table.add_column("Movies", justify="right")
+    table.add_column("TV", justify="right")
+    table.add_column("Time")
+    table.add_column("Synced At")
+    table.add_column("Updated At")
+
+    for item in items:
+        statistics = item.get("statistics") if isinstance(item.get("statistics"), dict) else {}
+        table.add_row(
+            _text(item.get("id")),
+            _text(item.get("type_text")),
+            _text(item.get("name")),
+            "yes" if item.get("enabled") else "no",
+            "yes" if item.get("default") else "no",
+            _text(statistics.get("movie_count")),
+            _text(statistics.get("tv_count")),
+            f"{statistics.get('time_seconds', 0)}s",
+            _text(statistics.get("updated_at_text")),
+            _text(item.get("updated_at_text")),
+        )
+
+    console.print(table)
+
+
+def output_media_server_detail(result: dict[str, Any]) -> None:
+    console.print("[bold]Media Server Detail[/bold]")
+    output_media_server_list({"total": 1, "items": [result]})
+
+
+def output_media_server_libraries(result: dict[str, Any]) -> None:
+    console.print("[bold]Media Server Libraries[/bold]")
+    console.print(f"Server ID: {result.get('server_id', '')} / Total: {result.get('total', 0)}")
+    items = result.get("items") or []
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("ID")
+    table.add_column("Name")
+    table.add_column("Type")
+    table.add_column("Paths")
+    table.add_column("Link")
+    for item in items:
+        paths = item.get("paths") if isinstance(item.get("paths"), list) else []
+        table.add_row(
+            _text(item.get("id")),
+            _text(item.get("name")),
+            _text(item.get("media_type")),
+            "\n".join(str(path) for path in paths),
+            _text(item.get("link")),
+        )
+    console.print(table)
+
+
+def output_media_server_statistics(result: dict[str, Any]) -> None:
+    console.print("[bold]Media Server Statistics[/bold]")
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Server ID")
+    table.add_column("Movies", justify="right")
+    table.add_column("TV", justify="right")
+    table.add_column("Time")
+    table.add_column("Synced At")
+    table.add_row(
+        _text(result.get("media_server_id")),
+        _text(result.get("movie_count")),
+        _text(result.get("tv_count")),
+        f"{result.get('time_seconds', 0)}s",
+        _text(result.get("updated_at_text")),
+    )
+    console.print(table)
+
+
+def output_media_server_sync_items(result: dict[str, Any]) -> None:
+    console.print("[bold]Media Server Sync Items[/bold]")
+    items = result.get("list") or []
+    console.print(
+        f"Page: {result.get('pageNum', 1)} / Page Size: {result.get('pageSize', len(items))} / Total: {result.get('total', 0)}"
+    )
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Title")
+    table.add_column("Type")
+    table.add_column("Year")
+    table.add_column("TMDB")
+    table.add_column("Library")
+    table.add_column("Size")
+    table.add_column("Miss")
+    table.add_column("Path")
+    for item in items:
+        table.add_row(
+            _text(item.get("title")),
+            _text(item.get("item_type")),
+            _text(item.get("year")),
+            _text(item.get("tmdb_id")),
+            _text(item.get("library_name")),
+            _text(item.get("size_text")),
+            "yes" if item.get("miss_eps") else "no",
+            _text(item.get("path")),
+        )
+    console.print(table)
+
+
+def output_media_server_media_items(result: dict[str, Any], title: str) -> None:
+    console.print(f"[bold]{title}[/bold]")
+    items = result.get("items") or []
+    console.print(f"Server ID: {result.get('server_id', '')} / Total: {result.get('total', len(items))}")
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("ID")
+    table.add_column("Name")
+    table.add_column("Type")
+    table.add_column("Percent")
+    table.add_column("Link")
+    for item in items:
+        percent = item.get("percent")
+        table.add_row(
+            _text(item.get("id")),
+            _text(item.get("name")),
+            _text(item.get("type")),
+            "" if percent is None else f"{percent}%",
+            _text(item.get("link")),
+        )
+    console.print(table)
+
+
+def output_media_server_sync_run(result: dict[str, Any]) -> None:
+    console.print("[bold green]媒体服务器同步任务已发起[/bold green]")
+    console.print(f"Server ID: {result.get('server_id', '')}")
+    if result.get("message"):
+        console.print(f"Message: {result.get('message')}")
+
+
 def _format_missing_episodes(episodes: list[Any], limit: int = 20) -> str:
     normalized = [str(item) for item in episodes]
     if len(normalized) <= limit:
         return ", ".join(normalized)
     return f"{', '.join(normalized[:limit])} ... ({len(normalized)} total)"
+
+
+def _text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value)

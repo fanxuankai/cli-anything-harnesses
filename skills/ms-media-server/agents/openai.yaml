@@ -1,0 +1,4 @@
+interface:
+  display_name: "ms 媒体服务器"
+  short_description: "用 ms CLI 查看媒体服务器、同步统计、媒体库和播放列表，并在明确要求时发起同步"
+  default_prompt: "使用 $ms-media-server 查询 ms 媒体服务器状态、媒体库和同步明细，必要时发起媒体库同步任务。"
