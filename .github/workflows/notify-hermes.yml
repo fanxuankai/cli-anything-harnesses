@@ -4,6 +4,7 @@ on:
   push:
     branches: [ "main" ]
     paths:
+      - "agent-harness/**"
       - "skills/**"
 
 permissions:
@@ -39,9 +40,11 @@ jobs:
           else:
               diff_range = "HEAD~1..HEAD"
 
+          watched_roots = ("agent-harness", "skills")
+
           try:
               changed = subprocess.check_output(
-                  ["git", "diff", "--name-only", diff_range, "--", "skills"],
+                  ["git", "diff", "--name-only", diff_range, "--", *watched_roots],
                   text=True,
               ).splitlines()
           except subprocess.CalledProcessError:
@@ -54,13 +57,21 @@ jobs:
                   if len(Path(path).parts) >= 2 and Path(path).parts[0] == "skills"
               }
           )
+          cli_names = sorted(
+              {
+                  Path(path).parts[1]
+                  for path in changed
+                  if len(Path(path).parts) >= 2 and Path(path).parts[0] == "agent-harness"
+              }
+          )
 
           payload = {
-              "event": "skills_changed",
+              "event": "cli_and_skills_changed",
               "repository": os.environ["GITHUB_REPOSITORY"],
               "ref": os.environ["GITHUB_REF"],
               "sha": after,
               "changed_files": changed,
+              "cli": cli_names,
               "skills": skill_names,
               "run_id": os.environ["GITHUB_RUN_ID"],
               "run_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
@@ -70,7 +81,7 @@ jobs:
           output_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"payload_path={output_path}\n")
-              output.write(f"skill_count={len(skill_names)}\n")
+              output.write(f"change_count={len(cli_names) + len(skill_names)}\n")
           PY
         env:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
@@ -80,7 +91,7 @@ jobs:
           cat "${{ steps.payload.outputs.payload_path }}"
 
       - name: Notify Hermes webhook
-        if: ${{ steps.payload.outputs.skill_count != '0' }}
+        if: ${{ steps.payload.outputs.change_count != '0' }}
         env:
           HERMES_WEBHOOK_URL: ${{ secrets.HERMES_WEBHOOK_URL }}
           HERMES_WEBHOOK_TOKEN: ${{ secrets.HERMES_WEBHOOK_TOKEN }}
