@@ -2,6 +2,15 @@ name: Notify Hermes
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "Manual notification scope"
+        required: false
+        default: "changed"
+        type: choice
+        options:
+          - changed
+          - all-ms-skills
   push:
     branches: [ "main" ]
     paths:
@@ -42,14 +51,21 @@ jobs:
               diff_range = "HEAD~1..HEAD"
 
           watched_paths = ("skills", ".github/workflows/notify-hermes.yml")
+          manual_scope = os.environ.get("MANUAL_SCOPE", "changed")
 
-          try:
-              changed = subprocess.check_output(
-                  ["git", "diff", "--name-only", diff_range, "--", *watched_paths],
-                  text=True,
-              ).splitlines()
-          except subprocess.CalledProcessError:
-              changed = []
+          if manual_scope == "all-ms-skills":
+              changed = sorted(
+                  str(path)
+                  for path in Path("skills").glob("ms-*/SKILL.md")
+              )
+          else:
+              try:
+                  changed = subprocess.check_output(
+                      ["git", "diff", "--name-only", diff_range, "--", *watched_paths],
+                      text=True,
+                  ).splitlines()
+              except subprocess.CalledProcessError:
+                  changed = []
 
           skill_names = sorted(
               {
@@ -64,6 +80,7 @@ jobs:
               "event_type": "push",
               "event": "push",
               "type": "skills_changed",
+              "scope": manual_scope,
               "repo": os.environ["GITHUB_REPOSITORY"],
               "repository_full_name": os.environ["GITHUB_REPOSITORY"],
               "repository": {
@@ -102,6 +119,7 @@ jobs:
         env:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
           GITHUB_EVENT_HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          MANUAL_SCOPE: ${{ github.event.inputs.scope || 'changed' }}
 
       - name: Show Hermes payload
         run: |
