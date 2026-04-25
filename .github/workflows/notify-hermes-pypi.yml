@@ -1,0 +1,228 @@
+name: Notify Hermes PyPI
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [ "Publish PyPI" ]
+    types: [ completed ]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout published commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Resolve published packages
+        id: packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id || '' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          packages = [
+              {
+                  "cli": "ms",
+                  "pypi_name": "cli-anything-ms",
+                  "path": "agent-harness/ms",
+                  "changed_path": "agent-harness/ms/setup.py",
+              },
+              {
+                  "cli": "cliproxyapi",
+                  "pypi_name": "cli-anything-cliproxyapi",
+                  "path": "agent-harness/cliproxyapi",
+                  "changed_path": "agent-harness/cliproxyapi/setup.py",
+              },
+          ]
+
+          resolved = []
+          source_run_id = os.environ.get("SOURCE_RUN_ID", "")
+          if source_run_id:
+              artifacts_dir = Path(os.environ["RUNNER_TEMP"]) / "published-artifacts"
+              artifacts_dir.mkdir(parents=True, exist_ok=True)
+              subprocess.run(
+                  ["gh", "run", "download", source_run_id, "--pattern", "published-package-*", "--dir", str(artifacts_dir)],
+                  check=False,
+                  text=True,
+              )
+              for path in sorted(artifacts_dir.rglob("published-package.json")):
+                  resolved.append(json.loads(path.read_text(encoding="utf-8")))
+          elif os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch":
+              changed_files = [package["changed_path"] for package in packages]
+              for package in packages:
+                  if package["changed_path"] not in changed_files:
+                      continue
+                  setup_py = Path(package["path"]) / "setup.py"
+                  text = setup_py.read_text(encoding="utf-8")
+                  match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', text)
+                  if not match:
+                      raise SystemExit(f"Cannot find version in {setup_py}")
+                  version = match.group(1)
+                  resolved.append({
+                      **package,
+                      "version": version,
+                      "pypi_url": f"https://pypi.org/project/{package['pypi_name']}/{version}/",
+                      "pypi_json_url": f"https://pypi.org/pypi/{package['pypi_name']}/{version}/json",
+                  })
+
+          output_path = Path(os.environ["RUNNER_TEMP"]) / "pypi-packages.json"
+          output_path.write_text(json.dumps(resolved, ensure_ascii=False), encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"packages_path={output_path}\n")
+              output.write(f"package_count={len(resolved)}\n")
+          PY
+
+      - name: Wait for PyPI visibility
+        id: wait
+        if: ${{ steps.packages.outputs.package_count != '0' }}
+        env:
+          PACKAGES_PATH: ${{ steps.packages.outputs.packages_path }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+          from pathlib import Path
+
+          packages = json.loads(Path(os.environ["PACKAGES_PATH"]).read_text(encoding="utf-8"))
+          visible = []
+          skipped = []
+          deadline = time.time() + 600
+
+          for package in packages:
+              url = package["pypi_json_url"]
+              while True:
+                  try:
+                      with urllib.request.urlopen(url, timeout=20) as response:
+                          json.load(response)
+                      visible.append(package)
+                      break
+                  except urllib.error.HTTPError as exc:
+                      if exc.code != 404:
+                          raise
+                      if time.time() >= deadline:
+                          skipped.append(package)
+                          break
+                      time.sleep(15)
+
+          output_path = Path(os.environ["RUNNER_TEMP"]) / "pypi-visible-packages.json"
+          output_path.write_text(json.dumps(visible, ensure_ascii=False), encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"visible_path={output_path}\n")
+              output.write(f"visible_count={len(visible)}\n")
+              output.write(f"skipped_count={len(skipped)}\n")
+          PY
+
+      - name: Build Hermes payload
+        id: payload
+        if: ${{ steps.packages.outputs.package_count != '0' && steps.wait.outputs.visible_count != '0' }}
+        env:
+          VISIBLE_PATH: ${{ steps.wait.outputs.visible_path }}
+          WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          HEAD_MESSAGE: ${{ github.event.workflow_run.head_commit.message || '' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          owner, repo_name = os.environ["GITHUB_REPOSITORY"].split("/", 1)
+          packages = json.loads(Path(os.environ["VISIBLE_PATH"]).read_text(encoding="utf-8"))
+          sha = os.environ["HEAD_SHA"]
+          payload = {
+              "event_type": "push",
+              "event": "push",
+              "type": "cli_pypi_released",
+              "repo": os.environ["GITHUB_REPOSITORY"],
+              "repository": {
+                  "name": repo_name,
+                  "full_name": os.environ["GITHUB_REPOSITORY"],
+                  "html_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}",
+                  "owner": {
+                      "login": owner,
+                  },
+              },
+              "branch": os.environ["HEAD_BRANCH"],
+              "sha": sha,
+              "head_commit": {
+                  "id": sha,
+                  "message": os.environ.get("HEAD_MESSAGE", ""),
+                  "url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/commit/{sha}",
+              },
+              "sender": {
+                  "login": os.environ["GITHUB_ACTOR"],
+              },
+              "packages": packages,
+              "cli": [package["cli"] for package in packages],
+              "workflow_run_url": os.environ["WORKFLOW_RUN_URL"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+          }
+
+          output_path = Path(os.environ["RUNNER_TEMP"]) / "hermes-pypi-payload.json"
+          output_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"payload_path={output_path}\n")
+          PY
+
+      - name: Show Hermes payload
+        if: ${{ steps.packages.outputs.package_count != '0' && steps.wait.outputs.visible_count != '0' }}
+        run: |
+          cat "${{ steps.payload.outputs.payload_path }}"
+
+      - name: Compute Hermes signature
+        id: sign
+        if: ${{ steps.packages.outputs.package_count != '0' && steps.wait.outputs.visible_count != '0' }}
+        env:
+          HERMES_WEBHOOK_SECRET: ${{ secrets.HERMES_WEBHOOK_SECRET || secrets.HERMES_WEBHOOK_TOKEN }}
+          PAYLOAD_PATH: ${{ steps.payload.outputs.payload_path }}
+        run: |
+          if [ -z "$HERMES_WEBHOOK_SECRET" ]; then
+            echo "HERMES_WEBHOOK_SECRET is not configured."
+            exit 1
+          fi
+
+          sig="sha256=$(openssl dgst -sha256 -hmac "$HERMES_WEBHOOK_SECRET" -binary "$PAYLOAD_PATH" | xxd -p -c 256)"
+          echo "signature=$sig" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Hermes webhook
+        if: ${{ steps.packages.outputs.package_count != '0' && steps.wait.outputs.visible_count != '0' }}
+        env:
+          HERMES_WEBHOOK_URL: ${{ secrets.HERMES_WEBHOOK_URL }}
+          HERMES_SIGNATURE: ${{ steps.sign.outputs.signature }}
+          PAYLOAD_PATH: ${{ steps.payload.outputs.payload_path }}
+        run: |
+          if [ -z "$HERMES_WEBHOOK_URL" ]; then
+            echo "HERMES_WEBHOOK_URL is not configured; skip Hermes notification."
+            exit 0
+          fi
+
+          curl --fail --show-error --silent --request POST "$HERMES_WEBHOOK_URL" \
+            --header "Content-Type: application/json" \
+            --header "X-GitHub-Event: push" \
+            --header "X-GitHub-Delivery: pypi-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --header "X-Hub-Signature-256: ${HERMES_SIGNATURE}" \
+            --data-binary "@${PAYLOAD_PATH}"

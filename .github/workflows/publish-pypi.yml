@@ -130,3 +130,36 @@ jobs:
           user: ${{ secrets.TWINE_USERNAME }}
           password: ${{ secrets.TWINE_PASSWORD }}
           packages-dir: ${{ matrix.path }}/dist/
+
+      - name: Record published package
+        if: ${{ steps.version.outputs.publish == 'true' }}
+        env:
+          PACKAGE: ${{ matrix.package }}
+          PYPI_NAME: ${{ matrix.pypi_name }}
+          PACKAGE_PATH: ${{ matrix.path }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = {
+              "cli": os.environ["PACKAGE"],
+              "pypi_name": os.environ["PYPI_NAME"],
+              "path": os.environ["PACKAGE_PATH"],
+              "version": os.environ["VERSION"],
+              "pypi_url": f"https://pypi.org/project/{os.environ['PYPI_NAME']}/{os.environ['VERSION']}/",
+              "pypi_json_url": f"https://pypi.org/pypi/{os.environ['PYPI_NAME']}/{os.environ['VERSION']}/json",
+          }
+          path = Path(os.environ["RUNNER_TEMP"]) / "published-package.json"
+          path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+          print(path)
+          PY
+
+      - name: Upload published package record
+        if: ${{ steps.version.outputs.publish == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-package-${{ matrix.package }}
+          path: ${{ runner.temp }}/published-package.json

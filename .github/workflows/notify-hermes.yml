@@ -6,7 +6,6 @@ on:
     branches: [ "main" ]
     paths:
       - ".github/workflows/notify-hermes.yml"
-      - "agent-harness/**"
       - "skills/**"
 
 permissions:
@@ -42,7 +41,7 @@ jobs:
           else:
               diff_range = "HEAD~1..HEAD"
 
-          watched_paths = ("agent-harness", "skills", ".github/workflows/notify-hermes.yml")
+          watched_paths = ("skills", ".github/workflows/notify-hermes.yml")
 
           try:
               changed = subprocess.check_output(
@@ -59,20 +58,12 @@ jobs:
                   if len(Path(path).parts) >= 2 and Path(path).parts[0] == "skills"
               }
           )
-          cli_names = sorted(
-              {
-                  Path(path).parts[1]
-                  for path in changed
-                  if len(Path(path).parts) >= 2 and Path(path).parts[0] == "agent-harness"
-              }
-          )
-
           owner, repo_name = os.environ["GITHUB_REPOSITORY"].split("/", 1)
           commit_url = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/commit/{after}"
           payload = {
               "event_type": "push",
               "event": "push",
-              "type": "cli_and_skills_changed",
+              "type": "skills_changed",
               "repo": os.environ["GITHUB_REPOSITORY"],
               "repository_full_name": os.environ["GITHUB_REPOSITORY"],
               "repository": {
@@ -97,7 +88,6 @@ jobs:
                   "login": os.environ["GITHUB_ACTOR"],
               },
               "changed_files": changed,
-              "cli": cli_names,
               "skills": skill_names,
               "run_id": os.environ["GITHUB_RUN_ID"],
               "run_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
