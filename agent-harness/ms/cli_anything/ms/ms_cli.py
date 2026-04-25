@@ -1,4 +1,4 @@
-"""Media Saber CLI 入口 - 基于 Click 的命令行工具。
+"""ms CLI 入口 - 基于 Click 的命令行工具。
 
 支持 REPL 模式和一次性命令，所有业务命令支持 --json 输出。
 """
@@ -14,10 +14,15 @@ import click
 
 from . import __version__
 from .core.client import ConnectionConfig, MSClient
+from .core.cloud_resource import MEDIA_TYPE_CHOICES as CLOUD_RESOURCE_MEDIA_TYPE_CHOICES
+from .core.cloud_resource import CloudResourceManager
 from .core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
 from .core.media_server import MediaServerManager
-from .core.subscribe import MEDIA_TYPE_CHOICES, SubscribeManager
+from .core.subscribe import MEDIA_TYPE_CHOICES as SUBSCRIBE_MEDIA_TYPE_CHOICES
+from .core.subscribe import SubscribeManager
 from .utils.output import (
+    output_cloud_resource_download,
+    output_cloud_resource_search,
     output_connection,
     output_error,
     output_json,
@@ -51,6 +56,7 @@ class Context:
         self._media_mgr: Optional[MediaManager] = None
         self._media_server_mgr: Optional[MediaServerManager] = None
         self._subscribe_mgr: Optional[SubscribeManager] = None
+        self._cloud_resource_mgr: Optional[CloudResourceManager] = None
 
     def setup(self, url: Optional[str], apikey: Optional[str]) -> None:
         self.conn = ConnectionConfig.resolve(url=url, api_key=apikey)
@@ -58,6 +64,7 @@ class Context:
         self._media_mgr = None
         self._media_server_mgr = None
         self._subscribe_mgr = None
+        self._cloud_resource_mgr = None
 
     @property
     def media_mgr(self) -> MediaManager:
@@ -82,6 +89,14 @@ class Context:
         if self._subscribe_mgr is None:
             self._subscribe_mgr = SubscribeManager(self.client)
         return self._subscribe_mgr
+
+    @property
+    def cloud_resource_mgr(self) -> CloudResourceManager:
+        if self.client is None:
+            raise ValueError("Client is not initialized")
+        if self._cloud_resource_mgr is None:
+            self._cloud_resource_mgr = CloudResourceManager(self.client)
+        return self._cloud_resource_mgr
 
 
 pass_ctx = click.make_pass_decorator(Context, ensure=True)
@@ -131,16 +146,16 @@ def _parse_json_object_option(raw: str, option_name: str) -> dict:
 # ---- 根命令组 ----
 
 @click.group(invoke_without_command=True)
-@click.option("--url", "-u", envvar="MS_URL", help="Media Saber base URL")
-@click.option("--apikey", "-k", envvar="MS_API_KEY", help="Media Saber API key")
+@click.option("--url", "-u", envvar="MS_URL", help="ms base URL")
+@click.option("--apikey", "-k", envvar="MS_API_KEY", help="ms API key")
 @click.option("--json", "json_mode", is_flag=True, help="Output normalized JSON")
 @click.option("--repl", "repl_mode", is_flag=True, help="Enter interactive REPL")
 @click.version_option(version=__version__, prog_name="cli-anything-ms")
 @click.pass_context
 def main(click_ctx: click.Context, url: Optional[str], apikey: Optional[str], json_mode: bool, repl_mode: bool) -> None:
-    """Media Saber 命令行工具。
+    """ms 命令行工具。
 
-    通过本地 CLI 统一调用 Media Saber 能力，当前聚焦连接配置、媒体搜索、媒体服务检查、插件调用和影视订阅。
+    通过本地 CLI 统一调用 ms 能力，当前聚焦连接配置、媒体搜索、媒体服务检查、插件调用和影视订阅。
 
     连接参数优先级: --url/--apikey > 环境变量 MS_URL/MS_API_KEY > ~/.ms-cli.yaml
     """
@@ -162,7 +177,7 @@ def main(click_ctx: click.Context, url: Optional[str], apikey: Optional[str], js
 def _enter_repl(ctx: Context) -> None:
     """交互式 REPL 模式。"""
     ctx.in_repl = True
-    click.echo("Media Saber REPL. 输入 help 查看帮助，exit 退出。")
+    click.echo("ms REPL. 输入 help 查看帮助，exit 退出。")
 
     while True:
         try:
@@ -200,8 +215,8 @@ def config(ctx: Context) -> None:
 
 
 @config.command("save-connection")
-@click.option("--url", "-u", required=True, help="Media Saber base URL")
-@click.option("--apikey", "-k", required=True, help="Media Saber API key")
+@click.option("--url", "-u", required=True, help="ms base URL")
+@click.option("--apikey", "-k", required=True, help="ms API key")
 @pass_ctx
 def save_connection(ctx: Context, url: str, apikey: str) -> None:
     """保存连接参数到 ~/.ms-cli.yaml。"""
@@ -589,6 +604,105 @@ def media_server_miss_episodes_check(ctx: Context) -> None:
 
 
 #
+# cloud-resource 命令组
+#
+
+@main.group("cloud-resource")
+@pass_ctx
+def cloud_resource(ctx: Context) -> None:
+    """云端资源搜索和下载命令。"""
+
+
+@cloud_resource.command("search")
+@click.option("--keyword", help="Keyword filter")
+@click.option("--tmdb-id", type=click.IntRange(min=1), help="TMDB ID")
+@click.option(
+    "--type",
+    "media_type",
+    type=click.Choice(CLOUD_RESOURCE_MEDIA_TYPE_CHOICES, case_sensitive=False),
+    help="Media type for TMDB searches",
+)
+@click.option("--season", type=click.IntRange(min=1), help="Season number")
+@click.option("--episode", type=click.IntRange(min=1), help="Episode number")
+@click.option("--begin-episode", type=click.IntRange(min=1), help="Begin episode number")
+@click.option("--end-episode", type=click.IntRange(min=1), help="End episode number")
+@click.option("--creator-id", type=click.IntRange(min=1), help="Cloud resource creator ID")
+@click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
+@click.option(
+    "--page-size",
+    type=click.IntRange(min=1),
+    default=25,
+    show_default=True,
+    help="Page size",
+)
+@pass_ctx
+def cloud_resource_search(
+    ctx: Context,
+    keyword: Optional[str],
+    tmdb_id: Optional[int],
+    media_type: Optional[str],
+    season: Optional[int],
+    episode: Optional[int],
+    begin_episode: Optional[int],
+    end_episode: Optional[int],
+    creator_id: Optional[int],
+    page: int,
+    page_size: int,
+) -> None:
+    """搜索云端资源。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.cloud_resource_mgr.search(
+            keyword=keyword,
+            tmdb_id=tmdb_id,
+            media_type=media_type.lower() if media_type else None,
+            season=season,
+            episode=episode,
+            begin_episode=begin_episode,
+            end_episode=end_episode,
+            creator_id=creator_id,
+            page=page,
+            page_size=page_size,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_cloud_resource_search(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@cloud_resource.command("download")
+@click.option("--request", "request_json", required=True, help="Download request JSON from search result")
+@click.option("--dir", "dir_path", help="Target cloud storage directory. Empty uses backend default")
+@pass_ctx
+def cloud_resource_download(ctx: Context, request_json: str, dir_path: Optional[str]) -> None:
+    """提交云端资源下载或转存任务。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        request = _parse_json_object_option(request_json, "--request")
+        result = ctx.cloud_resource_mgr.submit_download(request, dir_path=(dir_path or "").strip() or None)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_cloud_resource_download(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+#
 # plugin 命令组
 #
 
@@ -647,7 +761,7 @@ def subscribe(ctx: Context) -> None:
 @click.option(
     "--type",
     "media_type",
-    type=click.Choice(MEDIA_TYPE_CHOICES, case_sensitive=False),
+    type=click.Choice(SUBSCRIBE_MEDIA_TYPE_CHOICES, case_sensitive=False),
     required=True,
     help="Subscribe media type",
 )
@@ -698,7 +812,7 @@ def subscribe_add(
 @click.option(
     "--type",
     "media_type",
-    type=click.Choice(MEDIA_TYPE_CHOICES, case_sensitive=False),
+    type=click.Choice(SUBSCRIBE_MEDIA_TYPE_CHOICES, case_sensitive=False),
     required=True,
     help="Subscribe media type",
 )

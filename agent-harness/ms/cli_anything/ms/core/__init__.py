@@ -1,4 +1,4 @@
-"""Core client utilities for Media Saber."""
+"""Core client utilities for ms."""
 
 from .client import ApiResponse, ConnectionConfig, MSClient
 from .media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_LABELS, MEDIA_SOURCE_MAP, MediaManager

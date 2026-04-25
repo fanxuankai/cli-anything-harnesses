@@ -3,7 +3,7 @@ name: ms-sub
 description: 使用 cli-anything-ms 搜索影视、订阅影视、查看订阅列表，例如：搜索流浪地球电影、订阅白日提灯电视剧、查看电视剧订阅列表。
 ---
 
-# MS Sub
+# ms Sub
 
 ## 概述
 

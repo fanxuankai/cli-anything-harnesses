@@ -1,8 +1,8 @@
-# Media Saber CLI Harness - SOP
+# ms CLI Harness - SOP
 
 ## 软件概述
 
-`ms` 是 Media Saber 后端的最小可用 CLI harness。
+`ms` 是后端服务的最小可用 CLI harness。
 
 当前版本只做几件事：
 
@@ -14,7 +14,7 @@
 
 ## API 结构观察
 
-Media Saber 的 `.api` 文件采用 go-zero `@server` 结构，主要由 `group`、`prefix`、`middleware` 和 handler 路由组成。
+ms 的 `.api` 文件采用 go-zero `@server` 结构，主要由 `group`、`prefix`、`middleware` 和 handler 路由组成。
 
 已确认的主模块包括：
 
@@ -250,7 +250,7 @@ CLI 侧命令面拆成：
 }
 ```
 
-也就是外层仍然是 Media Saber 标准响应，外层 `data` 内部才是插件自己的 `message/data`。
+也就是外层仍然是 ms 标准响应，外层 `data` 内部才是插件自己的 `message/data`。
 
 ### REPL
 

@@ -1,4 +1,4 @@
-"""Output helpers for the Media Saber CLI."""
+"""Output helpers for the ms CLI."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def output_connection(data: dict[str, Any], json_mode: bool = False) -> None:
         output_json(data)
         return
 
-    console.print("[bold]Media Saber Connection[/bold]")
+    console.print("[bold]ms Connection[/bold]")
     for key, value in data.items():
         console.print(f"[cyan]{key}[/cyan]: {value}")
 
@@ -342,6 +342,58 @@ def output_subscribe_add(result: dict[str, Any]) -> None:
     console.print("[cyan]status[/cyan]: 已按默认配置提交")
 
 
+def output_cloud_resource_search(result: dict[str, Any]) -> None:
+    total = result.get("total", 0)
+    page_num = result.get("pageNum", 1)
+    page_size = result.get("pageSize", 25)
+    items = result.get("list") or []
+
+    console.print("[bold]Cloud Resource Search[/bold]")
+    console.print(f"[cyan]Page[/cyan]: {page_num} / [cyan]Page Size[/cyan]: {page_size} / [cyan]Total[/cyan]: {total}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Title")
+    table.add_column("Size")
+    table.add_column("Driver")
+    table.add_column("Creator")
+    table.add_column("TMDB")
+    table.add_column("Type")
+    table.add_column("CS Hash")
+    table.add_column("Download")
+
+    for item in items:
+        link = item.get("link") if isinstance(item.get("link"), dict) else {}
+        creator = item.get("creator") if isinstance(item.get("creator"), dict) else {}
+        driver = item.get("driver") if isinstance(item.get("driver"), dict) else {}
+        table.add_row(
+            str(item.get("title", "") or ""),
+            _format_bytes(item.get("size")),
+            str(driver.get("name", "") or ""),
+            _format_creator(creator),
+            "" if item.get("tmdb_id") is None else str(item.get("tmdb_id")),
+            str(link.get("type_name", "") or ""),
+            "" if item.get("cs_hash_id") is None else str(item.get("cs_hash_id")),
+            "yes" if item.get("downloadable") else "no",
+        )
+
+    console.print(table)
+
+
+def output_cloud_resource_download(result: dict[str, Any]) -> None:
+    console.print("[bold green]Cloud Resource Download Submitted[/bold green]")
+    console.print(f"[cyan]type[/cyan]: {result.get('type', '')}")
+    console.print(f"[cyan]count[/cyan]: {result.get('count', '')}")
+    dir_path = result.get("dir")
+    console.print(f"[cyan]dir[/cyan]: {dir_path or '(backend default)'}")
+    message = result.get("message")
+    if message:
+        console.print(f"[cyan]message[/cyan]: {message}")
+
+
 def output_subscribe_page(result: dict[str, Any], media_type: str) -> None:
     total = result.get("total", 0)
     page_num = result.get("pageNum", 1)
@@ -378,6 +430,31 @@ def output_subscribe_page(result: dict[str, Any], media_type: str) -> None:
         )
 
     console.print(table)
+
+
+def _format_creator(creator: dict[str, Any]) -> str:
+    name = str(creator.get("name", "") or "")
+    creator_id = creator.get("id")
+    if creator_id in (None, ""):
+        return name
+    if not name:
+        return str(creator_id)
+    return f"{name} ({creator_id})"
+
+
+def _format_bytes(value: Any) -> str:
+    try:
+        size = float(value or 0)
+    except (TypeError, ValueError):
+        return ""
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    unit_idx = 0
+    while size >= 1024 and unit_idx < len(units) - 1:
+        size /= 1024
+        unit_idx += 1
+    if unit_idx == 0:
+        return f"{int(size)} {units[unit_idx]}"
+    return f"{size:.2f} {units[unit_idx]}"
 
 
 def _print_data(data: Any) -> None:

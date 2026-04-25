@@ -1,0 +1,4 @@
+interface:
+  display_name: "ms 云端资源"
+  short_description: "用 ms CLI 查询云端资源，并在明确要求时提交云下载或转存任务"
+  default_prompt: "使用 $ms-cloud-resource 查询 ms 云端资源，必要时基于搜索结果提交下载或转存任务。"

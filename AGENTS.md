@@ -12,7 +12,7 @@
 
 这是一个基于 `cli-anything` skill 方法论实现的 CLI harness 仓库。
 
-- `agent-harness/ms/`：Media Saber 相关 CLI harness。
+- `agent-harness/ms/`：ms 相关 CLI harness。
 - `agent-harness/cliproxyapi/`：CLIProxyAPI 相关 CLI harness。
 - `skills/`：面向 Codex/Agent 使用的技能说明。
 - `README.md`：仓库安装和使用说明。

@@ -1,1 +1,1 @@
-"""Output helpers for Media Saber CLI."""
+"""Output helpers for ms CLI."""

@@ -1,4 +1,4 @@
-"""Core HTTP client for Media Saber."""
+"""Core HTTP client for ms."""
 
 from __future__ import annotations
 
@@ -114,9 +114,9 @@ class ConnectionConfig:
 
     def require_configured(self) -> None:
         if not self.base_url:
-            raise ValueError("Media Saber URL is not configured")
+            raise ValueError("ms URL is not configured")
         if not self.api_key:
-            raise ValueError("Media Saber API key is not configured")
+            raise ValueError("ms API key is not configured")
 
     def as_display_dict(self) -> dict[str, Any]:
         return {
@@ -185,7 +185,7 @@ class ApiResponse:
 
 
 class MSClient:
-    """Generic HTTP client for Media Saber."""
+    """Generic HTTP client for ms."""
 
     def __init__(self, conn: ConnectionConfig):
         self.conn = conn
@@ -195,7 +195,7 @@ class MSClient:
         if not path.startswith("/"):
             raise ValueError("PATH must start with '/' and be a full API path")
         if not self.conn.base_url:
-            raise ValueError("Media Saber URL is not configured")
+            raise ValueError("ms URL is not configured")
         return f"{self.conn.base_url}{path}"
 
     def _build_headers(self, headers: Optional[dict[str, str]] = None) -> dict[str, str]:

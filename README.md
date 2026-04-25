@@ -5,7 +5,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/commits/main)
 [![Issues](https://img.shields.io/github/issues/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/issues)
 [![Pull requests](https://img.shields.io/github/issues-pr/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/pulls)
-[![Skills](https://img.shields.io/badge/skills-6-2f6f9f)](#skills)
+[![Skills](https://img.shields.io/badge/skills-7-2f6f9f)](#skills)
 [![PyPI - cli-anything-ms](https://img.shields.io/pypi/v/cli-anything-ms?label=cli-anything-ms)](https://pypi.org/project/cli-anything-ms/)
 [![PyPI - cli-anything-cliproxyapi](https://img.shields.io/pypi/v/cli-anything-cliproxyapi?label=cli-anything-cliproxyapi)](https://pypi.org/project/cli-anything-cliproxyapi/)
 
@@ -17,7 +17,7 @@
 
 | Harness     | PyPI                                                                                                                                                 | CLI                        | Install                                |
 |-------------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|----------------------------------------|
-| Media Saber | [![PyPI](https://img.shields.io/pypi/v/cli-anything-ms?label=cli-anything-ms)](https://pypi.org/project/cli-anything-ms/)                            | `cli-anything-ms`          | `pip install cli-anything-ms`          |
+| ms | [![PyPI](https://img.shields.io/pypi/v/cli-anything-ms?label=cli-anything-ms)](https://pypi.org/project/cli-anything-ms/)                            | `cli-anything-ms`          | `pip install cli-anything-ms`          |
 | CLIProxyAPI | [![PyPI](https://img.shields.io/pypi/v/cli-anything-cliproxyapi?label=cli-anything-cliproxyapi)](https://pypi.org/project/cli-anything-cliproxyapi/) | `cli-anything-cliproxyapi` | `pip install cli-anything-cliproxyapi` |
 
 ## Skills
@@ -28,6 +28,7 @@
 | [`ms-gap-filler`](skills/ms-gap-filler/SKILL.md)                       | 检查电视剧漏集，或把漏集转成订阅补齐。  | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-gap-filler`            |
 | [`ms-recommend`](skills/ms-recommend/SKILL.md)                         | 查看豆瓣、TMDB 等影视推荐。     | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-recommend`             |
 | [`ms-rank`](skills/ms-rank/SKILL.md)                                   | 查看豆瓣等影视榜单。           | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-rank`                  |
+| [`ms-cloud-resource`](skills/ms-cloud-resource/SKILL.md)               | 查询云端资源，并提交云下载或转存任务。  | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-cloud-resource`        |
 | [`ms-zspace-state`](skills/ms-zspace-state/SKILL.md)                   | 查看极空间系统、硬件、磁盘、网络等状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-zspace-state`          |
 | [`cli-anything-cliproxyapi`](skills/cli-anything-cliproxyapi/SKILL.md) | 管理 CLIProxyAPI 代理服务。 | `npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyapi` |
 
@@ -84,7 +85,7 @@ cli-anything-cliproxyapi --json server status
 
 ```text
 agent-harness/
-  ms/                 # Media Saber harness
+  ms/                 # ms harness
   cliproxyapi/        # CLIProxyAPI harness
 skills/               # Codex / Agent skills
 .github/              # GitHub Actions and contribution templates

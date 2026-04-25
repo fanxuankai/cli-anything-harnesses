@@ -3,7 +3,7 @@ name: ms-zspace-state
 description: 查极空间系统信息、系统状态、硬件状态、运行状态，或想查看 CPU、内存、磁盘、温度、网络信息时使用。这个技能会确保 `cli-anything-ms` 可用，调用 ms 的极空间插件接口获取最新状态，并用中文总结回复。
 ---
 
-# MS Zspace State
+# ms Zspace State
 
 ## 概述
 

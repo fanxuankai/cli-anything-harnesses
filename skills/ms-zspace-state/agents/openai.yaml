@@ -1,4 +1,4 @@
 interface:
-  display_name: "MS 极空间状态"
+  display_name: "ms 极空间状态"
   short_description: "用 ms CLI 调用极空间插件并总结当前系统状态与硬件信息"
   default_prompt: "使用 $ms-zspace-state 获取并总结极空间当前系统状态。"

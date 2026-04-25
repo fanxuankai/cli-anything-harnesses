@@ -3,7 +3,7 @@ name: ms-rank
 description: 查看 ms 影视榜单时使用，例如“影视榜单”“豆瓣电视榜单”“看豆瓣热播国产剧”“榜单前10个”“看电影年榜 2025”。这个技能会通过 `cli-anything-ms` 逐步查询榜单来源、分类、主题和条目，并输出简洁摘要。
 ---
 
-# MS Rank
+# ms Rank
 
 ## 概述
 
@@ -15,8 +15,6 @@ description: 查看 ms 影视榜单时使用，例如“影视榜单”“豆瓣
 ```bash
 pip install cli-anything-ms
 ```
-
-如果不可用，只提示用户安装，不自动安装。
 
 ## 触发场景
 

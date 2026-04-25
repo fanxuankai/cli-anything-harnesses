@@ -1,4 +1,4 @@
-"""Subprocess tests for the Media Saber CLI harness."""
+"""Subprocess tests for the ms CLI harness."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def _server_available() -> bool:
 
 skip_no_server = pytest.mark.skipif(
     not _server_available(),
-    reason="Media Saber server is unavailable or MS_URL/MS_API_KEY are not set",
+    reason="ms server is unavailable or MS_URL/MS_API_KEY are not set",
 )
 
 
@@ -123,6 +123,19 @@ class TestCLIHelp:
         assert result.returncode == 0
         assert "miss-episodes-check" in result.stdout
 
+    def test_cloud_resource_search_help(self):
+        result = _cli("cloud-resource", "search", "--help")
+
+        assert result.returncode == 0
+        assert "--keyword" in result.stdout
+        assert "--tmdb-id" in result.stdout
+
+    def test_cloud_resource_download_help(self):
+        result = _cli("cloud-resource", "download", "--help")
+
+        assert result.returncode == 0
+        assert "--request" in result.stdout
+
     def test_plugin_call_help(self):
         result = _cli("plugin", "call", "--help")
 
@@ -183,6 +196,26 @@ class TestLiveServer:
             assert {"media_id", "media_type", "poster_url", "subscription", "library"}.issubset(item.keys())
             assert "rssId" not in item
             assert "archived" not in item
+
+    @skip_no_server
+    def test_cloud_resource_search_keyword(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["cloud-resource", "search", "--keyword", "庆余年", "--page", "1", "--page-size", "3"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
+            if payload["list"]:
+                item = payload["list"][0]
+                assert {"title", "size", "driver", "creator", "link", "downloadable", "download_request"}.issubset(item.keys())
+        else:
+            assert "error" in payload
 
     @skip_no_server
     def test_media_rank_sources(self):

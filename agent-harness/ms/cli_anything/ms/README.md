@@ -1,8 +1,8 @@
 # cli-anything-ms
 
-Media Saber 后端的最小可用 CLI harness。
+ms 后端的最小可用 CLI harness。
 
-当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`media-server miss-episodes-check`、`plugin call` 和 `subscribe add`。
+当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download`、`media-server miss-episodes-check`、`plugin call` 和 `subscribe add`。
 
 ## 安装
 
@@ -176,6 +176,46 @@ JSON 输出：
 cli-anything-ms --json subscribe page --type movie --page 1 --page-size 99
 ```
 
+## 云端资源
+
+搜索云端资源：
+
+```bash
+cli-anything-ms cloud-resource search --keyword "庆余年" --page 1 --page-size 5
+```
+
+按 TMDB ID 搜索时必须指定类型：
+
+```bash
+cli-anything-ms cloud-resource search --tmdb-id 95842 --type tv --season 1 --episode 46
+```
+
+可选过滤条件：
+
+```bash
+cli-anything-ms cloud-resource search --keyword "庆余年" --creator-id 931 --begin-episode 40 --end-episode 46
+```
+
+JSON 输出里每条可下载资源会带 `download_request`，后续下载只使用这个字段：
+
+```bash
+cli-anything-ms --json cloud-resource search --keyword "庆余年" --page-size 5
+```
+
+提交云下载或转存任务：
+
+```bash
+cli-anything-ms cloud-resource download --request '{"type":300,"contents":["ed2k://..."],"csHashId":1246925,"csCreator":"Lucifer"}'
+```
+
+指定目标目录：
+
+```bash
+cli-anything-ms cloud-resource download --request '{"type":200,"contents":["..."]}' --dir "/downloads"
+```
+
+`--dir` 不传时使用后端默认云下载或默认转存目录。下载命令只提交任务，不等待任务完成。
+
 ## REPL
 
 在交互终端中直接运行 `cli-anything-ms` 会进入 REPL：
@@ -222,6 +262,8 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `media search`
 - `media rank`
 - `media recommend`
+- `cloud-resource search`
+- `cloud-resource download`
 - `media-server miss-episodes-check`
 - `plugin call`
 - `subscribe page`

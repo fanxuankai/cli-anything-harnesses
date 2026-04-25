@@ -1,4 +1,4 @@
 interface:
-  display_name: "MS 影视榜单"
+  display_name: "ms 影视榜单"
   short_description: "用 ms CLI 浏览影视榜单并按平台、分类、主题逐步查看内容"
   default_prompt: "使用 $ms-rank 查询影视榜单，并按平台、分类、主题逐步展示结果。"

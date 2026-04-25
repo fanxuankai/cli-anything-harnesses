@@ -1,4 +1,4 @@
-"""Unit tests for the Media Saber CLI harness."""
+"""Unit tests for the ms CLI harness."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ HARNESS_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 sys.path.insert(0, HARNESS_ROOT)
 
 from cli_anything.ms.core.client import ApiResponse, ConnectionConfig, MSClient
+from cli_anything.ms.core.cloud_resource import CloudResourceManager
 from cli_anything.ms.core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
 from cli_anything.ms.core.media_server import MediaServerManager
 from cli_anything.ms.core.subscribe import SubscribeManager
@@ -73,6 +74,38 @@ def _normalized_media_item(**overrides):
         "subscription": {"subscribed": False, "id": None},
         "library": {"archived": True, "resource_count": 2},
         "published_site_count": 2,
+    }
+    item.update(overrides)
+    return item
+
+
+def _raw_cloud_resource_item(**overrides):
+    item = {
+        "id": 0,
+        "title": "庆余年.Joy.of.Life.2019.S01E46.1080p.mp4",
+        "description": "1080p",
+        "size": 2251076541,
+        "pubDate": 1710000000,
+        "mediaType": "tv",
+        "tmdbId": 95842,
+        "driverName": "115 Open",
+        "linkDriverName": "",
+        "linkType": 300,
+        "enclosure": "ed2k://|file|test.mp4|2251076541|ABC|/",
+        "csHashId": 1246925,
+        "userName": "Lucifer",
+        "userId": 931,
+        "archived": True,
+        "metadata": {
+            "resourcePix": "1080p",
+            "videoEncode": "AVC",
+            "seasonEpisode": "S01 E46",
+        },
+        "tmdbMedia": {
+            "id": 95842,
+            "title": "庆余年",
+            "year": 2019,
+        },
     }
     item.update(overrides)
     return item
@@ -637,6 +670,168 @@ class TestMediaServerManager:
         assert result["items"][-1]["title"] == "title-19"
 
 
+class TestCloudResourceManager:
+
+    def test_search_uses_site_resource_page_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"total": 1, "pageNum": 2, "pageSize": 5, "list": [_raw_cloud_resource_item()]},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = CloudResourceManager(client)
+        result = manager.search(
+            keyword="庆余年",
+            tmdb_id=95842,
+            media_type="tv",
+            season=1,
+            episode=46,
+            begin_episode=40,
+            end_episode=46,
+            creator_id=931,
+            page=2,
+            page_size=5,
+        )
+
+        assert result["total"] == 1
+        item = result["list"][0]
+        assert item["title"].startswith("庆余年")
+        assert item["size"] == 2251076541
+        assert item["driver"]["name"] == "115 Open"
+        assert item["creator"] == {"id": 931, "name": "Lucifer"}
+        assert item["tmdb_id"] == 95842
+        assert item["link"] == {
+            "type": 300,
+            "type_name": "云下载",
+            "url": "ed2k://|file|test.mp4|2251076541|ABC|/",
+        }
+        assert item["cs_hash_id"] == 1246925
+        assert item["downloadable"] is True
+        assert item["download_request"] == {
+            "type": 300,
+            "contents": ["ed2k://|file|test.mp4|2251076541|ABC|/"],
+            "csHashId": 1246925,
+            "csCreator": "Lucifer",
+        }
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/siteResource/page",
+            params={"pageNum": "2", "pageSize": "5"},
+            json_body={
+                "searchCloudStorage": True,
+                "keyword": "庆余年",
+                "tmdbId": 95842,
+                "mediaType": "tv",
+                "season": 1,
+                "episode": 46,
+                "beginEpisode": 40,
+                "endEpisode": 46,
+                "creatorId": 931,
+            },
+        )
+
+    def test_search_requires_meaningful_query(self):
+        manager = CloudResourceManager(MagicMock())
+
+        with pytest.raises(ValueError, match="requires --keyword"):
+            manager.search(page=1, page_size=25)
+
+    def test_tmdb_search_requires_media_type(self):
+        manager = CloudResourceManager(MagicMock())
+
+        with pytest.raises(ValueError, match="requires --type"):
+            manager.search(tmdb_id=95842, page=1, page_size=25)
+
+    def test_share_link_download_request_uses_share_receive_type(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"total": 1, "pageNum": 1, "pageSize": 25, "list": [_raw_cloud_resource_item(linkType=200, enclosure='{"path":"test.mp4"}')]},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = CloudResourceManager(client).search(keyword="庆余年")
+
+        assert result["list"][0]["link"]["type_name"] == "云分享"
+        assert result["list"][0]["download_request"]["type"] == 200
+        assert result["list"][0]["download_request"]["contents"] == ['{"path":"test.mp4"}']
+
+    def test_submit_download_posts_upload_payload_for_offline_download(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=True,
+            raw_body={},
+            is_standard_response=True,
+        )
+        request = {
+            "type": 300,
+            "contents": ["ed2k://|file|test.mp4|1|ABC|/"],
+            "csHashId": 1246925,
+            "csCreator": "Lucifer",
+        }
+
+        result = CloudResourceManager(client).submit_download(request, dir_path="/downloads")
+
+        assert result["status"] == "submitted"
+        assert result["type"] == 300
+        assert result["count"] == 1
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/cloudStorageFs/upload",
+            json_body={
+                "type": 300,
+                "contents": ["ed2k://|file|test.mp4|1|ABC|/"],
+                "dir": "/downloads",
+                "csHashId": 1246925,
+                "csCreator": "Lucifer",
+            },
+        )
+
+    def test_submit_download_posts_upload_payload_for_share_receive(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=True,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        CloudResourceManager(client).submit_download(
+            {"type": 200, "contents": ['{"path":"test.mp4"}']},
+            dir_path=None,
+        )
+
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/cloudStorageFs/upload",
+            json_body={"type": 200, "contents": ['{"path":"test.mp4"}']},
+        )
+
+    def test_submit_download_rejects_invalid_request(self):
+        manager = CloudResourceManager(MagicMock())
+
+        with pytest.raises(ValueError, match="must be 200 or 300"):
+            manager.submit_download({"type": 100, "contents": ["x"]}, dir_path=None)
+        with pytest.raises(ValueError, match="non-empty array"):
+            manager.submit_download({"type": 300, "contents": []}, dir_path=None)
+
+
 class TestSubscribeManager:
 
     def test_get_default_config_uses_detail_endpoint(self):
@@ -939,6 +1134,165 @@ class TestCLI:
 
         assert result.exit_code != 0
         assert "--keyword cannot be empty" in result.output
+
+    def test_cloud_resource_search_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_search(
+            self,
+            *,
+            keyword,
+            tmdb_id,
+            media_type,
+            season,
+            episode,
+            begin_episode,
+            end_episode,
+            creator_id,
+            page,
+            page_size,
+        ):
+            assert keyword == "庆余年"
+            assert tmdb_id is None
+            assert media_type is None
+            assert season is None
+            assert episode is None
+            assert begin_episode is None
+            assert end_episode is None
+            assert creator_id is None
+            assert page == 1
+            assert page_size == 25
+            return {
+                "total": 1,
+                "pageNum": 1,
+                "pageSize": 25,
+                "list": [
+                    {
+                        "title": "庆余年.S01E46.mp4",
+                        "size": 100,
+                        "driver": {"name": "115 Open", "link_driver_name": ""},
+                        "creator": {"id": 931, "name": "Lucifer"},
+                        "tmdb_id": 95842,
+                        "link": {"type": 300, "type_name": "云下载", "url": "ed2k://test"},
+                        "cs_hash_id": 1246925,
+                        "downloadable": True,
+                        "download_request": {"type": 300, "contents": ["ed2k://test"], "csHashId": 1246925, "csCreator": "Lucifer"},
+                    }
+                ],
+            }
+
+        monkeypatch.setattr(CloudResourceManager, "search", fake_search)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "cloud-resource",
+                "search",
+                "--keyword",
+                "庆余年",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["total"] == 1
+        assert payload["list"][0]["download_request"]["type"] == 300
+
+    def test_cloud_resource_search_command_human_output(self, monkeypatch):
+        runner = CliRunner()
+        monkeypatch.setattr(
+            CloudResourceManager,
+            "search",
+            lambda self, **kwargs: {
+                "total": 1,
+                "pageNum": 1,
+                "pageSize": 25,
+                "list": [
+                    {
+                        "title": "庆余年.S01E46.mp4",
+                        "size": 2251076541,
+                        "driver": {"name": "115 Open"},
+                        "creator": {"id": 931, "name": "Lucifer"},
+                        "tmdb_id": 95842,
+                        "link": {"type_name": "云下载"},
+                        "cs_hash_id": 1246925,
+                        "downloadable": True,
+                    }
+                ],
+            },
+        )
+
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "cloud-resource",
+                "search",
+                "--keyword",
+                "庆余年",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Cloud Resource Search" in result.output
+        assert "庆余年" in result.output
+
+    def test_cloud_resource_download_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_submit_download(self, request, *, dir_path):
+            assert request == {"type": 300, "contents": ["ed2k://test"], "csHashId": 1}
+            assert dir_path == "/downloads"
+            return {"status": "submitted", "type": 300, "dir": "/downloads", "count": 1, "response": True, "message": "SUCCESS"}
+
+        monkeypatch.setattr(CloudResourceManager, "submit_download", fake_submit_download)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "cloud-resource",
+                "download",
+                "--request",
+                '{"type":300,"contents":["ed2k://test"],"csHashId":1}',
+                "--dir",
+                "/downloads",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["status"] == "submitted"
+        assert payload["count"] == 1
+
+    def test_cloud_resource_download_rejects_invalid_json(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "cloud-resource",
+                "download",
+                "--request",
+                "not-json",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "--request must be valid JSON" in result.output
 
     def test_media_rank_sources_json(self, monkeypatch):
         runner = CliRunner()
