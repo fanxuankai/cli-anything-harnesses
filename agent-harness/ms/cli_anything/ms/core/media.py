@@ -36,6 +36,21 @@ MEDIA_RECOMMEND_SOURCE_MAP = {
     "letterboxd": 1300,
 }
 
+MEDIA_SOURCE_LABELS = {
+    100: "豆瓣",
+    200: "TMDB",
+    300: "芒果",
+    400: "爱奇艺",
+    500: "优酷",
+    600: "腾讯",
+    700: "灯塔",
+    800: "B站",
+    900: "Bangumi",
+    1000: "央视影音",
+    1100: "咪咕视频",
+    1300: "Letterboxd",
+}
+
 
 class MediaManager:
     """Business-level helpers for media-related commands."""
@@ -59,7 +74,7 @@ class MediaManager:
             raise ValueError(message)
         if not isinstance(response.data, dict):
             raise ValueError("Media search returned an unexpected response payload")
-        return response.data
+        return self._normalize_media_page(response.data)
 
     def rank_sources(self) -> list[dict[str, Any]]:
         response = self.client.request("GET", "/api/v1/mediaSubject/mediaSources")
@@ -108,7 +123,7 @@ class MediaManager:
             raise ValueError(message)
         if not isinstance(response.data, dict):
             raise ValueError("Media rank items returned an unexpected response payload")
-        return response.data
+        return self._normalize_media_page(response.data)
 
     def recommend_sources(self) -> list[dict[str, Any]]:
         response = self.client.request("GET", "/api/v1/mediaRecommend/mediaSources")
@@ -168,4 +183,55 @@ class MediaManager:
             raise ValueError(message)
         if not isinstance(response.data, dict):
             raise ValueError("Media recommend items returned an unexpected response payload")
-        return response.data
+        return self._normalize_media_page(response.data)
+
+    def _normalize_media_page(self, data: dict[str, Any]) -> dict[str, Any]:
+        items = data.get("list") or []
+        if not isinstance(items, list):
+            items = []
+        return {
+            "total": data.get("total", 0),
+            "pageNum": data.get("pageNum", 1),
+            "pageSize": data.get("pageSize", len(items)),
+            "list": [self._normalize_media_item(item) for item in items],
+        }
+
+    def _normalize_media_item(self, item: Any) -> dict[str, Any]:
+        if not isinstance(item, dict):
+            item = {}
+
+        source_code = item.get("source")
+        subscription_id = self._normalize_subscription_id(item.get("rssId"))
+        published_sites = item.get("publishedSites")
+
+        return {
+            "media_id": item.get("id"),
+            "title": item.get("title", "") or "",
+            "subtitle": item.get("subtitle", "") or "",
+            "source": {
+                "code": source_code,
+                "name": MEDIA_SOURCE_LABELS.get(source_code, "" if source_code in (None, "") else str(source_code)),
+            },
+            "media_type": item.get("type", "") or "",
+            "year": item.get("year"),
+            "vote": item.get("vote"),
+            "overview": item.get("overview", "") or "",
+            "poster_url": item.get("poster", "") or "",
+            "subscription": {
+                "subscribed": subscription_id is not None,
+                "id": subscription_id,
+            },
+            "library": {
+                "archived": bool(item.get("archived")),
+                "resource_count": item.get("cloudStorageResourceCount", 0) or 0,
+            },
+            "published_site_count": len(published_sites) if isinstance(published_sites, list) else 0,
+        }
+
+    def _normalize_subscription_id(self, rss_id: Any) -> Any | None:
+        if rss_id in (None, "", 0):
+            return None
+        try:
+            return rss_id if int(rss_id) > 0 else None
+        except (TypeError, ValueError):
+            return rss_id

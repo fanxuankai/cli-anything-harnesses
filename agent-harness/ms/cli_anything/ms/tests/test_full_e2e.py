@@ -178,6 +178,11 @@ class TestLiveServer:
         assert result.returncode == 0
         payload = json.loads(result.stdout)
         assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
+        if payload["list"]:
+            item = payload["list"][0]
+            assert {"media_id", "media_type", "poster_url", "subscription", "library"}.issubset(item.keys())
+            assert "rssId" not in item
+            assert "archived" not in item
 
     @skip_no_server
     def test_media_rank_sources(self):
@@ -259,6 +264,11 @@ class TestLiveServer:
         if result.returncode == 0:
             assert isinstance(payload, dict)
             assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
+            if payload["list"]:
+                item = payload["list"][0]
+                assert {"media_id", "media_type", "poster_url", "subscription", "library"}.issubset(item.keys())
+                assert "rssId" not in item
+                assert "archived" not in item
         else:
             assert "error" in payload
 
@@ -344,6 +354,11 @@ class TestLiveServer:
         if result.returncode == 0:
             assert isinstance(payload, dict)
             assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
+            if payload["list"]:
+                item = payload["list"][0]
+                assert {"media_id", "media_type", "poster_url", "subscription", "library"}.issubset(item.keys())
+                assert "rssId" not in item
+                assert "archived" not in item
         else:
             assert "error" in payload
 

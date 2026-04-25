@@ -34,6 +34,68 @@ def _mock_response(*, status_code=200, json_data=None, text_data=None):
     return resp
 
 
+def _raw_media_item(**overrides):
+    item = {
+        "id": "35010610",
+        "title": "挽救计划",
+        "subtitle": "",
+        "source": 100,
+        "type": "movie",
+        "year": 2026,
+        "vote": 8.6,
+        "poster": "https://example.test/poster.jpg",
+        "posterGif": "https://example.test/poster.gif",
+        "backdrop": "https://example.test/backdrop.jpg",
+        "overview": "2026 / 美国 / 剧情 科幻 惊悚",
+        "rssId": 0,
+        "downloaded": False,
+        "publishedSites": ["天空", "馒头"],
+        "archived": True,
+        "archivedEffect": True,
+        "archivedSeasons": [{"season": 1, "episodes": [1]}],
+        "cloudStorageResourceCount": 2,
+    }
+    item.update(overrides)
+    return item
+
+
+def _normalized_media_item(**overrides):
+    item = {
+        "media_id": "35010610",
+        "title": "挽救计划",
+        "subtitle": "",
+        "source": {"code": 100, "name": "豆瓣"},
+        "media_type": "movie",
+        "year": 2026,
+        "vote": 8.6,
+        "overview": "2026 / 美国 / 剧情 科幻 惊悚",
+        "poster_url": "https://example.test/poster.jpg",
+        "subscription": {"subscribed": False, "id": None},
+        "library": {"archived": True, "resource_count": 2},
+        "published_site_count": 2,
+    }
+    item.update(overrides)
+    return item
+
+
+def _assert_no_raw_media_noise(item):
+    for key in {
+        "id",
+        "type",
+        "poster",
+        "rssId",
+        "archived",
+        "cloudStorageResourceCount",
+        "posterGif",
+        "backdrop",
+        "downloaded",
+        "archivedEffect",
+        "archivedSeasons",
+        "publishedSites",
+    }:
+        assert key not in item
+
+
 class TestConnectionConfig:
 
     def test_cli_has_highest_priority(self, monkeypatch, tmp_path):
@@ -184,8 +246,12 @@ class TestMediaManager:
             ok=True,
             code=0,
             message="success",
-            data={"total": 1, "pageNum": 1, "pageSize": 20, "list": [{"title": "Test"}]},
-            raw_body={"code": 0, "message": "success", "data": {"total": 1, "pageNum": 1, "pageSize": 20, "list": [{"title": "Test"}]}},
+            data={"total": 1, "pageNum": 1, "pageSize": 20, "list": [_raw_media_item(title="Test")]},
+            raw_body={
+                "code": 0,
+                "message": "success",
+                "data": {"total": 1, "pageNum": 1, "pageSize": 20, "list": [_raw_media_item(title="Test")]},
+            },
             is_standard_response=True,
         )
 
@@ -193,6 +259,16 @@ class TestMediaManager:
         result = manager.search(source_code=200, keyword="Interstellar", page=2, page_size=5)
 
         assert result["total"] == 1
+        item = result["list"][0]
+        assert item["media_id"] == "35010610"
+        assert item["title"] == "Test"
+        assert item["media_type"] == "movie"
+        assert item["source"] == {"code": 100, "name": "豆瓣"}
+        assert item["poster_url"] == "https://example.test/poster.jpg"
+        assert item["subscription"] == {"subscribed": False, "id": None}
+        assert item["library"] == {"archived": True, "resource_count": 2}
+        assert item["published_site_count"] == 2
+        _assert_no_raw_media_noise(item)
         client.request.assert_called_once_with(
             "GET",
             "/api/v1/media/search",
@@ -269,7 +345,7 @@ class TestMediaManager:
             ok=True,
             code=20000,
             message="SUCCESS",
-            data={"total": 50, "pageNum": 1, "pageSize": 25, "list": [{"title": "危险关系"}]},
+            data={"total": 50, "pageNum": 1, "pageSize": 25, "list": [_raw_media_item(title="危险关系", type="tv")]},
             raw_body={},
             is_standard_response=True,
         )
@@ -278,6 +354,9 @@ class TestMediaManager:
         result = manager.rank_items(category_code="douban_tv", code="tv_domestic", page=1, page_size=25)
 
         assert result["total"] == 50
+        assert result["list"][0]["media_type"] == "tv"
+        assert result["list"][0]["title"] == "危险关系"
+        _assert_no_raw_media_noise(result["list"][0])
         client.request.assert_called_once_with(
             "GET",
             "/api/v1/mediaSubject/items",
@@ -288,6 +367,46 @@ class TestMediaManager:
                 "pageSize": "25",
             },
         )
+
+    def test_media_items_normalize_subscription_and_site_counts(self):
+        client = MagicMock()
+        missing_rss_item = _raw_media_item(title="missing-rss-field", publishedSites=[])
+        missing_rss_item.pop("rssId")
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={
+                "total": 5,
+                "pageNum": 1,
+                "pageSize": 5,
+                "list": [
+                    _raw_media_item(title="not-subscribed", rssId=0, publishedSites=None),
+                    _raw_media_item(title="missing-rss", rssId=None, publishedSites=[]),
+                    missing_rss_item,
+                    _raw_media_item(title="subscribed-int", rssId=400, publishedSites=["天空"]),
+                    _raw_media_item(title="subscribed-str", rssId="401", publishedSites=["天空", "馒头"]),
+                ],
+            },
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaManager(client)
+        result = manager.rank_items(category_code="douban_tv", code="tv_domestic", page=1, page_size=4)
+        items = result["list"]
+
+        assert items[0]["subscription"] == {"subscribed": False, "id": None}
+        assert items[0]["published_site_count"] == 0
+        assert items[1]["subscription"] == {"subscribed": False, "id": None}
+        assert items[1]["published_site_count"] == 0
+        assert items[2]["subscription"] == {"subscribed": False, "id": None}
+        assert items[2]["published_site_count"] == 0
+        assert items[3]["subscription"] == {"subscribed": True, "id": 400}
+        assert items[3]["published_site_count"] == 1
+        assert items[4]["subscription"] == {"subscribed": True, "id": "401"}
+        assert items[4]["published_site_count"] == 2
 
     def test_rank_sources_rejects_non_list_payload(self):
         client = MagicMock()
@@ -388,7 +507,7 @@ class TestMediaManager:
             ok=True,
             code=20000,
             message="SUCCESS",
-            data={"total": 50, "pageNum": 1, "pageSize": 25, "list": [{"title": "危险关系"}]},
+            data={"total": 50, "pageNum": 1, "pageSize": 25, "list": [_raw_media_item(title="危险关系", type="tv")]},
             raw_body={},
             is_standard_response=True,
         )
@@ -403,6 +522,9 @@ class TestMediaManager:
         )
 
         assert result["total"] == 50
+        assert result["list"][0]["media_type"] == "tv"
+        assert result["list"][0]["title"] == "危险关系"
+        _assert_no_raw_media_noise(result["list"][0])
         client.request.assert_called_once_with(
             "POST",
             "/api/v1/mediaRecommend/page",
@@ -662,14 +784,15 @@ class TestCLI:
                 "pageNum": 1,
                 "pageSize": 20,
                 "list": [
-                    {
-                        "title": "Interstellar",
-                        "subtitle": "星际穿越",
-                        "year": 2014,
-                        "type": "movie",
-                        "source": 200,
-                        "vote": 8.6,
-                    }
+                    _normalized_media_item(
+                        media_id="1889243",
+                        title="Interstellar",
+                        subtitle="星际穿越",
+                        source={"code": 200, "name": "TMDB"},
+                        media_type="movie",
+                        year=2014,
+                        vote=8.6,
+                    )
                 ],
             }
 
@@ -695,6 +818,9 @@ class TestCLI:
         payload = json.loads(result.output)
         assert payload["total"] == 1
         assert payload["list"][0]["title"] == "Interstellar"
+        assert payload["list"][0]["media_id"] == "1889243"
+        assert payload["list"][0]["media_type"] == "movie"
+        assert "rssId" not in payload["list"][0]
 
     def test_media_search_command_human_output(self, monkeypatch):
         runner = CliRunner()
@@ -705,14 +831,15 @@ class TestCLI:
                 "pageNum": 1,
                 "pageSize": 20,
                 "list": [
-                    {
-                        "title": "Interstellar",
-                        "subtitle": "星际穿越",
-                        "year": 2014,
-                        "type": "movie",
-                        "source": 200,
-                        "vote": 8.6,
-                    }
+                    _normalized_media_item(
+                        media_id="1889243",
+                        title="Interstellar",
+                        subtitle="星际穿越",
+                        source={"code": 200, "name": "TMDB"},
+                        media_type="movie",
+                        year=2014,
+                        vote=8.6,
+                    )
                 ],
             }
 
@@ -925,7 +1052,7 @@ class TestCLI:
                 "total": 50,
                 "pageNum": 1,
                 "pageSize": 25,
-                "list": [{"title": "危险关系", "type": "tv", "year": 2026, "vote": 7.9, "rssId": 0, "archived": False}],
+                "list": [_normalized_media_item(title="危险关系", media_type="tv", year=2026, vote=7.9)],
             }
 
         monkeypatch.setattr(MediaManager, "rank_items", fake_rank_items)
@@ -955,6 +1082,11 @@ class TestCLI:
         payload = json.loads(result.output)
         assert payload["total"] == 50
         assert payload["list"][0]["title"] == "危险关系"
+        assert payload["list"][0]["media_type"] == "tv"
+        assert payload["list"][0]["poster_url"] == "https://example.test/poster.jpg"
+        assert payload["list"][0]["subscription"] == {"subscribed": False, "id": None}
+        assert payload["list"][0]["library"] == {"archived": True, "resource_count": 2}
+        _assert_no_raw_media_noise(payload["list"][0])
 
     def test_media_rank_items_human_output(self, monkeypatch):
         runner = CliRunner()
@@ -967,15 +1099,14 @@ class TestCLI:
                 "pageNum": 1,
                 "pageSize": 25,
                 "list": [
-                    {
-                        "title": "危险关系",
-                        "subtitle": "",
-                        "type": "tv",
-                        "year": 2026,
-                        "vote": 7.9,
-                        "rssId": 400,
-                        "archived": False,
-                    }
+                    _normalized_media_item(
+                        title="危险关系",
+                        media_type="tv",
+                        year=2026,
+                        vote=7.9,
+                        subscription={"subscribed": True, "id": 400},
+                        library={"archived": False, "resource_count": 0},
+                    )
                 ],
             },
         )
@@ -1161,7 +1292,7 @@ class TestCLI:
                 "total": 50,
                 "pageNum": 1,
                 "pageSize": 25,
-                "list": [{"title": "危险关系", "type": "tv", "year": 2026, "vote": 7.9, "rssId": 0, "archived": False}],
+                "list": [_normalized_media_item(title="危险关系", media_type="tv", year=2026, vote=7.9)],
             }
 
         monkeypatch.setattr(MediaManager, "recommend_items", fake_recommend_items)
@@ -1192,6 +1323,9 @@ class TestCLI:
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["total"] == 50
+        assert payload["list"][0]["media_type"] == "tv"
+        assert payload["list"][0]["subscription"] == {"subscribed": False, "id": None}
+        _assert_no_raw_media_noise(payload["list"][0])
 
     def test_media_recommend_options_human_output(self, monkeypatch):
         runner = CliRunner()
@@ -1235,15 +1369,14 @@ class TestCLI:
                 "pageNum": 1,
                 "pageSize": 25,
                 "list": [
-                    {
-                        "title": "危险关系",
-                        "subtitle": "",
-                        "type": "tv",
-                        "year": 2026,
-                        "vote": 7.9,
-                        "rssId": 400,
-                        "archived": False,
-                    }
+                    _normalized_media_item(
+                        title="危险关系",
+                        media_type="tv",
+                        year=2026,
+                        vote=7.9,
+                        subscription={"subscribed": True, "id": 400},
+                        library={"archived": False, "resource_count": 0},
+                    )
                 ],
             },
         )

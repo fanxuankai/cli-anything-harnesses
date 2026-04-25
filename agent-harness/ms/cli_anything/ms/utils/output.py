@@ -17,21 +17,6 @@ SUBSCRIBE_STATUS_LABELS = {
     200: "订阅运行中",
     300: "订阅已完成",
 }
-MEDIA_SOURCE_LABELS = {
-    100: "豆瓣",
-    200: "TMDB",
-    300: "芒果",
-    400: "爱奇艺",
-    500: "优酷",
-    600: "腾讯",
-    700: "灯塔",
-    800: "B站",
-    900: "Bangumi",
-    1000: "央视影音",
-    1100: "咪咕视频",
-    1300: "Letterboxd",
-}
-
 
 def output_json(data: Any) -> None:
     console.file.write(json.dumps(data, indent=2, ensure_ascii=False))
@@ -102,6 +87,8 @@ def output_media_search(result: dict[str, Any], source: str, keyword: str) -> No
     table.add_column("Type")
     table.add_column("Source")
     table.add_column("Vote")
+    table.add_column("Subscribed")
+    table.add_column("In Library")
     table.add_column("Poster")
 
     for item in items:
@@ -109,12 +96,17 @@ def output_media_search(result: dict[str, Any], source: str, keyword: str) -> No
         subtitle = str(item.get("subtitle", "") or "")
         title_cell = title if not subtitle else f"{title}\n[dim]{subtitle}[/dim]"
         year = "" if item.get("year") is None else str(item.get("year", ""))
-        media_type = str(item.get("type", "") or "")
-        source_label = MEDIA_SOURCE_LABELS.get(item.get("source"), str(item.get("source", "")))
+        media_type = str(item.get("media_type", "") or "")
+        source = item.get("source") or {}
+        source_label = str(source.get("name", "") or "")
         vote_value = item.get("vote")
         vote = "-" if vote_value in (None, "") else f"{float(vote_value):.1f}"
-        poster = item.get("poster")
-        table.add_row(title_cell, year, media_type, source_label, vote, poster)
+        subscription = item.get("subscription") or {}
+        subscribed = "yes" if subscription.get("subscribed") else "no"
+        library = item.get("library") or {}
+        in_library = "yes" if library.get("archived") else "no"
+        poster = item.get("poster_url")
+        table.add_row(title_cell, year, media_type, source_label, vote, subscribed, in_library, poster)
 
     console.print(table)
 
@@ -207,21 +199,23 @@ def output_media_rank_items(result: dict[str, Any], category_code: str, code: st
     table.add_column("Year")
     table.add_column("Type")
     table.add_column("Vote")
-    table.add_column("RSS")
-    table.add_column("Archived")
+    table.add_column("Subscription")
+    table.add_column("In Library")
 
     for item in items:
         title = str(item.get("title", "") or "")
         subtitle = str(item.get("subtitle", "") or "")
         title_cell = title if not subtitle else f"{title}\n[dim]{subtitle}[/dim]"
         year = "" if item.get("year") is None else str(item.get("year", ""))
-        media_type = str(item.get("type", "") or "")
+        media_type = str(item.get("media_type", "") or "")
         vote_value = item.get("vote")
         vote = "-" if vote_value in (None, "") else f"{float(vote_value):.1f}"
-        rss_id = item.get("rssId")
+        subscription = item.get("subscription") or {}
+        rss_id = subscription.get("id")
         rss = "-" if rss_id in (None, "", 0) else str(rss_id)
-        archived = "yes" if item.get("archived") else "no"
-        table.add_row(title_cell, year, media_type, vote, rss, archived)
+        library = item.get("library") or {}
+        in_library = "yes" if library.get("archived") else "no"
+        table.add_row(title_cell, year, media_type, vote, rss, in_library)
 
     console.print(table)
 
@@ -316,21 +310,23 @@ def output_media_recommend_items(result: dict[str, Any], source: str, channel: s
     table.add_column("Year")
     table.add_column("Type")
     table.add_column("Vote")
-    table.add_column("RSS")
-    table.add_column("Archived")
+    table.add_column("Subscription")
+    table.add_column("In Library")
 
     for item in items:
         title = str(item.get("title", "") or "")
         subtitle = str(item.get("subtitle", "") or "")
         title_cell = title if not subtitle else f"{title}\n[dim]{subtitle}[/dim]"
         year = "" if item.get("year") is None else str(item.get("year", ""))
-        media_type = str(item.get("type", "") or "")
+        media_type = str(item.get("media_type", "") or "")
         vote_value = item.get("vote")
         vote = "-" if vote_value in (None, "") else f"{float(vote_value):.1f}"
-        rss_id = item.get("rssId")
+        subscription = item.get("subscription") or {}
+        rss_id = subscription.get("id")
         rss = "-" if rss_id in (None, "", 0) else str(rss_id)
-        archived = "yes" if item.get("archived") else "no"
-        table.add_row(title_cell, year, media_type, vote, rss, archived)
+        library = item.get("library") or {}
+        in_library = "yes" if library.get("archived") else "no"
+        table.add_row(title_cell, year, media_type, vote, rss, in_library)
 
     console.print(table)
 

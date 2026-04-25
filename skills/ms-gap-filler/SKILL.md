@@ -7,7 +7,7 @@ description: 检查 ms 里的电视剧漏集，或者想把漏集电视剧转成
 
 ## 概述
 
-通过本地 `cli-anything-ms` CLI 处理电视剧漏集检查和补订阅。
+通过本地 `cli-anything-ms` CLI 检查电视剧漏集，并在用户明确要补的时候，把缺集对应的剧和季重新加入订阅。
 
 ## 安装
 
@@ -27,7 +27,7 @@ pip install cli-anything-ms
 
 ## 工作流
 
-### 步骤 1：检查漏集
+### 1. 先检查漏集
 
 无论用户是说“查漏集”还是直接说“补漏集”，都先执行：
 
@@ -35,31 +35,17 @@ pip install cli-anything-ms
 cli-anything-ms --json media-server miss-episodes-check
 ```
 
-只按正式返回字段解析：
+按 CLI 返回的原始顺序处理，不要自行按年份、标题或缺集数量重排。
 
-- `title`
-- `year`
-- `episodes`
-- `episodes[].season`
-- `episodes[].missEpisodes`
+### 2. 汇总漏集结果
 
-按返回原始顺序处理，不要重排。
-
-### 步骤 2：汇总漏集结果
-
-不要直接倾倒整段 JSON。
-按“剧”为单位给出简洁摘要，至少包含：
-
-- 标题
-- 年份
-- 漏集季数
-- 每季缺少哪些集数
+不要直接倾倒整段 JSON。按“剧”为单位用自然中文说明标题、年份、缺的是哪一季、缺哪些集。
 
 如果结果为空，直接告诉用户 `无漏集`，结束流程，不再继续补订阅。
 
 如果结果非空，查完后始终追问用户是否要补漏集。
 
-### 步骤 3：确定补漏集范围
+### 3. 确定要补哪些
 
 支持两种选择方式：
 
@@ -72,10 +58,10 @@ cli-anything-ms --json media-server miss-episodes-check
 
 如果用户指定剧名，按标题近似匹配漏集列表里的项目；如果有多个相近候选，不要猜，先让用户确认具体是哪一个。
 
-### 步骤 4：执行补订阅
+### 4. 执行补订阅
 
 补漏集的本质是补订阅，不做 TMDB 搜索，不走旧 `/dse`。
-直接使用漏集检查结果里的 `title`、`year` 和每个 `season` 执行：
+直接使用漏集检查结果里的标题、年份和季数执行：
 
 ```bash
 cli-anything-ms --json subscribe add --type tv --name "<title>" --year <year> --season <season>
@@ -88,9 +74,9 @@ cli-anything-ms --json subscribe add --type tv --name "<title>" --year <year> --
 - 如果同一剧有多个漏集季，默认全部补，不再逐季二次确认
 - 单条失败时继续执行后续条目，不因为一个失败中断全部
 
-### 步骤 5：返回结果
+### 5. 返回结果
 
-在执行前，先明确告诉用户将补哪些剧、哪些季。
+执行前先用自然中文告诉用户将补哪些剧、哪些季。
 
 执行后逐条返回结果，并给出最终汇总：
 
@@ -106,4 +92,4 @@ cli-anything-ms --json subscribe add --type tv --name "<title>" --year <year> --
 - 这个技能只处理电视剧，不处理电影。
 - 不要发明新的补漏集 CLI 子命令。
 - “补前几个”始终按漏集结果的原始顺序取前 N 个剧。
-- 输出要先给用户可读摘要，再在需要时展示原始 JSON。
+- 输出要先给用户可读摘要，不要展示字段名或 JSON 结构；只有用户明确要求原始返回时才展示。
