@@ -1,0 +1,119 @@
+name: Publish PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package to publish"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - ms
+          - cliproxyapi
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.package || 'release' }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest click requests rich PyYAML
+          pip install -e agent-harness/cliproxyapi
+          pip install -e agent-harness/ms
+
+      - name: Lint with flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Test with pytest
+        run: |
+          pytest --import-mode=importlib \
+            agent-harness/cliproxyapi/cli_anything/cliproxyapi/tests \
+            agent-harness/ms/cli_anything/ms/tests
+
+  publish-ms:
+    needs: test
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'ms' }}
+    environment:
+      name: pypi
+      url: https://pypi.org/project/cli-anything-ms/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Build package
+        working-directory: agent-harness/ms
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+          rm -rf build dist ./*.egg-info
+          python -m build
+          python -m twine check dist/*
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: agent-harness/ms/dist/
+          skip-existing: true
+
+  publish-cliproxyapi:
+    needs: test
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'cliproxyapi' }}
+    environment:
+      name: pypi
+      url: https://pypi.org/project/cli-anything-cliproxyapi/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Build package
+        working-directory: agent-harness/cliproxyapi
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+          rm -rf build dist ./*.egg-info
+          python -m build
+          python -m twine check dist/*
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: agent-harness/cliproxyapi/dist/
+          skip-existing: true

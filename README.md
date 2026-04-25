@@ -107,6 +107,21 @@ PyPI 当前版本通过对应包的公开发布版本展示：
 - <https://pypi.org/project/cli-anything-ms/>
 - <https://pypi.org/project/cli-anything-cliproxyapi/>
 
+## PyPI 发布
+
+`.github/workflows/publish-pypi.yml` 支持自动发布到 PyPI：
+
+- 手动触发：在 GitHub Actions 里运行 `Publish PyPI`，选择 `all`、`ms` 或 `cliproxyapi`。
+- Release 触发：发布 GitHub Release 时会构建并尝试发布两个包。
+- 已存在的版本会跳过，不会覆盖 PyPI 上已有文件。
+
+发布使用 PyPI Trusted Publishing。两个 PyPI 项目都需要配置 trusted publisher：
+
+- Owner：`fanxuankai`
+- Repository：`cli-anything-harnesses`
+- Workflow：`publish-pypi.yml`
+- Environment：`pypi`
+
 ## GitHub
 
 - Releases: <https://github.com/fanxuankai/cli-anything-harnesses/releases>
