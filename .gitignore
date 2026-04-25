@@ -5,7 +5,6 @@
 **/__pycache__/
 **/*.pyc
 uv.lock
-my.md
 agent-harness/*/dist/
 # AGENTS
 .claude/
