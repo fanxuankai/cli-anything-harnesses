@@ -69,7 +69,7 @@ GITHUB_TOKEN=你的 Github PAT
 
 兼容旧配置：如果没有 `HERMES_WEBHOOK_SECRET`，workflow 会回退使用 `HERMES_WEBHOOK_TOKEN` 作为 HMAC secret。
 
-通知 payload 包含 `repo`、`repository`、`branch`、`sha`、`actor`、`message`、`changed_files`、`cli`、`skills` 和 `run_url`。如果未配置 `HERMES_WEBHOOK_URL`，workflow 会跳过通知。
+通知会带 `X-GitHub-Event: push`、`X-GitHub-Delivery` 和 `X-Hub-Signature-256` 请求头。payload 包含 GitHub 风格的 `event_type`、`repository`、`head_commit`、`sender`，以及 `changed_files`、`cli`、`skills` 和 `run_url`。如果未配置 `HERMES_WEBHOOK_URL`，workflow 会跳过通知。
 
 ## Local Development
 

@@ -67,16 +67,35 @@ jobs:
               }
           )
 
+          owner, repo_name = os.environ["GITHUB_REPOSITORY"].split("/", 1)
+          commit_url = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/commit/{after}"
           payload = {
-              "event": "github_action",
+              "event_type": "push",
+              "event": "push",
               "type": "cli_and_skills_changed",
               "repo": os.environ["GITHUB_REPOSITORY"],
-              "repository": os.environ["GITHUB_REPOSITORY"],
+              "repository_full_name": os.environ["GITHUB_REPOSITORY"],
+              "repository": {
+                  "name": repo_name,
+                  "full_name": os.environ["GITHUB_REPOSITORY"],
+                  "html_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}",
+                  "owner": {
+                      "login": owner,
+                  },
+              },
               "ref": os.environ["GITHUB_REF"],
               "branch": os.environ["GITHUB_REF_NAME"],
               "sha": after,
               "actor": os.environ["GITHUB_ACTOR"],
               "message": os.environ.get("GITHUB_EVENT_HEAD_COMMIT_MESSAGE", ""),
+              "head_commit": {
+                  "id": after,
+                  "message": os.environ.get("GITHUB_EVENT_HEAD_COMMIT_MESSAGE", ""),
+                  "url": commit_url,
+              },
+              "sender": {
+                  "login": os.environ["GITHUB_ACTOR"],
+              },
               "changed_files": changed,
               "cli": cli_names,
               "skills": skill_names,
@@ -131,6 +150,8 @@ jobs:
             --silent
             --request POST
             --header "Content-Type: application/json"
+            --header "X-GitHub-Event: push"
+            --header "X-GitHub-Delivery: ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             --header "X-Hub-Signature-256: ${HERMES_SIGNATURE}"
             --data-binary "@${PAYLOAD_PATH}"
           )
