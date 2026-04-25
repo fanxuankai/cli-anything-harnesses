@@ -67,6 +67,8 @@ GITHUB_TOKEN=你的 Github PAT
 - `HERMES_WEBHOOK_URL`：Hermes 接收 CLI 和 skill 更新通知的 HTTP 地址。
 - `HERMES_WEBHOOK_SECRET`：Hermes webhook 的签名 secret。workflow 会生成 `X-Hub-Signature-256`。
 
+兼容旧配置：如果没有 `HERMES_WEBHOOK_SECRET`，workflow 会回退使用 `HERMES_WEBHOOK_TOKEN` 作为 HMAC secret。
+
 通知 payload 包含 `repo`、`repository`、`branch`、`sha`、`actor`、`message`、`changed_files`、`cli`、`skills` 和 `run_url`。如果未配置 `HERMES_WEBHOOK_URL`，workflow 会跳过通知。
 
 ## Local Development

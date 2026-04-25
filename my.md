@@ -11,6 +11,8 @@ HERMES_WEBHOOK_URL=https://...
 HERMES_WEBHOOK_SECRET=你的 webhook secret
 ```
 
+如果暂时还用旧的 `HERMES_WEBHOOK_TOKEN`，workflow 会把它作为 HMAC secret 回退使用。
+
 payload 会带 `repo`、`repository`、`branch`、`sha`、`actor`、`message`、`changed_files`、`cli`、`skills` 和 `run_url`，并通过 `X-Hub-Signature-256` 发送 HMAC 签名。
 
 ### GitHub Actions
