@@ -107,7 +107,7 @@ cli-anything-ms --json media recommend items --source <alias> --channel <channel
 - 年份
 - 类型
 - 评分
-- RSS
+- 是否已订阅
 - 入库状态
 - 海报
 

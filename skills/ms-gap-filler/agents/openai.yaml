@@ -1,4 +1,4 @@
 interface:
   display_name: "MS 漏集补齐"
-  short_description: "查电视剧漏集、确认补订阅，并按剧逐季转成 Media Saber 订阅"
+  short_description: "查电视剧漏集、确认补订阅，并按剧逐季转成 ms 订阅"
   default_prompt: "使用 $ms-gap-filler 检查电视剧漏集，并在我确认后按剧批量补订阅。"

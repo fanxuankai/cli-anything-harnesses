@@ -1,6 +1,6 @@
 ---
 name: ms-gap-filler
-description: 检查 Media Saber 里的电视剧漏集，或者想把漏集电视剧转成订阅补齐时使用，例如“查漏集”“补漏集”“补前3个”“补猎罪图鉴”。
+description: 检查 ms 里的电视剧漏集，或者想把漏集电视剧转成订阅补齐时使用，例如“查漏集”“补漏集”“补前3个”“补猎罪图鉴”。
 ---
 
 # MS Gap Filler

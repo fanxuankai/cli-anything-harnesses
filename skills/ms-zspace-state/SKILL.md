@@ -1,6 +1,6 @@
 ---
 name: ms-zspace-state
-description: 查极空间系统信息、系统状态、硬件状态、运行状态，或想查看 CPU、内存、磁盘、温度、网络信息时使用。这个技能会确保 `cli-anything-ms` 可用，调用 Media Saber 的极空间插件接口获取最新状态，并用中文总结回复。
+description: 查极空间系统信息、系统状态、硬件状态、运行状态，或想查看 CPU、内存、磁盘、温度、网络信息时使用。这个技能会确保 `cli-anything-ms` 可用，调用 ms 的极空间插件接口获取最新状态，并用中文总结回复。
 ---
 
 # MS Zspace State
@@ -28,11 +28,11 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 ```
 
 - 不要要求用户手动拼接参数。
-- 不要调用别的 Media Saber 接口。
+- 不要调用别的 ms 接口。
 
 ### 步骤 3：解析返回结构
 
-- 顶层是 Media Saber 的标准响应外壳。
+- 顶层是 ms 的标准响应外壳。
 - 真实的极空间状态在插件层返回对象的 `data` 列表中。
 - 默认取列表中的最新一条状态记录作为当前状态。
 - 如果命令返回空列表，明确告诉用户当前没有拿到极空间状态数据。
