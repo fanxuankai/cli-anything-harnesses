@@ -111,16 +111,13 @@ PyPI 当前版本通过对应包的公开发布版本展示：
 
 `.github/workflows/publish-pypi.yml` 支持自动发布到 PyPI：
 
-- 手动触发：在 GitHub Actions 里运行 `Publish PyPI`，选择 `all`、`ms` 或 `cliproxyapi`。
-- Release 触发：发布 GitHub Release 时会构建并尝试发布两个包。
-- 已存在的版本会跳过，不会覆盖 PyPI 上已有文件。
+- 触发方式：推送到 `main`，且 `agent-harness/ms/setup.py` 或 `agent-harness/cliproxyapi/setup.py` 发生变化。
+- 发布条件：读取对应 `setup.py` 的 `version`，如果 PyPI 上不存在该版本，就构建并发布；已存在的版本会跳过。
 
-发布使用 PyPI Trusted Publishing。两个 PyPI 项目都需要配置 trusted publisher：
+发布使用 PyPI token。需要在 GitHub 仓库 Secrets 中配置：
 
-- Owner：`fanxuankai`
-- Repository：`cli-anything-harnesses`
-- Workflow：`publish-pypi.yml`
-- Environment：`pypi`
+- `TWINE_USERNAME`：通常为 `__token__`
+- `TWINE_PASSWORD`：PyPI token，例如 `pypi-...`
 
 ## GitHub
 

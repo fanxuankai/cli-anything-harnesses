@@ -1,26 +1,17 @@
 name: Publish PyPI
 
 on:
-  workflow_dispatch:
-    inputs:
-      package:
-        description: "Package to publish"
-        required: true
-        default: "all"
-        type: choice
-        options:
-          - all
-          - ms
-          - cliproxyapi
-  release:
-    types: [published]
+  push:
+    branches: [ "main" ]
+    paths:
+      - "agent-harness/ms/setup.py"
+      - "agent-harness/cliproxyapi/setup.py"
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.package || 'release' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -54,13 +45,19 @@ jobs:
             agent-harness/cliproxyapi/cli_anything/cliproxyapi/tests \
             agent-harness/ms/cli_anything/ms/tests
 
-  publish-ms:
+  publish:
     needs: test
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'ms' }}
-    environment:
-      name: pypi
-      url: https://pypi.org/project/cli-anything-ms/
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: ms
+            pypi_name: cli-anything-ms
+            path: agent-harness/ms
+          - package: cliproxyapi
+            pypi_name: cli-anything-cliproxyapi
+            path: agent-harness/cliproxyapi
 
     steps:
       - name: Checkout
@@ -71,8 +68,54 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Check PyPI version
+        id: version
+        env:
+          PACKAGE_NAME: ${{ matrix.pypi_name }}
+          PACKAGE_PATH: ${{ matrix.path }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import re
+          import urllib.error
+          import urllib.request
+          from pathlib import Path
+          import os
+
+          package_name = os.environ["PACKAGE_NAME"]
+          package_path = Path(os.environ["PACKAGE_PATH"])
+          setup_py = package_path / "setup.py"
+          text = setup_py.read_text(encoding="utf-8")
+          match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', text)
+          if not match:
+              raise SystemExit(f"Cannot find version in {setup_py}")
+
+          version = match.group(1)
+          url = f"https://pypi.org/pypi/{package_name}/{version}/json"
+          exists = False
+          try:
+              with urllib.request.urlopen(url, timeout=20) as response:
+                  json.load(response)
+              exists = True
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise
+
+          print(f"version={version}")
+          print(f"publish={'false' if exists else 'true'}")
+          print(f"checked_url={url}")
+          PY
+
+      - name: Show publish decision
+        run: |
+          echo "package=${{ matrix.pypi_name }}"
+          echo "version=${{ steps.version.outputs.version }}"
+          echo "publish=${{ steps.version.outputs.publish }}"
+          echo "checked_url=${{ steps.version.outputs.checked_url }}"
+
       - name: Build package
-        working-directory: agent-harness/ms
+        if: ${{ steps.version.outputs.publish == 'true' }}
+        working-directory: ${{ matrix.path }}
         run: |
           python -m pip install --upgrade pip
           python -m pip install build twine
@@ -81,39 +124,9 @@ jobs:
           python -m twine check dist/*
 
       - name: Publish package to PyPI
+        if: ${{ steps.version.outputs.publish == 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: agent-harness/ms/dist/
-          skip-existing: true
-
-  publish-cliproxyapi:
-    needs: test
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'cliproxyapi' }}
-    environment:
-      name: pypi
-      url: https://pypi.org/project/cli-anything-cliproxyapi/
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Build package
-        working-directory: agent-harness/cliproxyapi
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build twine
-          rm -rf build dist ./*.egg-info
-          python -m build
-          python -m twine check dist/*
-
-      - name: Publish package to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: agent-harness/cliproxyapi/dist/
-          skip-existing: true
+          user: ${{ secrets.TWINE_USERNAME }}
+          password: ${{ secrets.TWINE_PASSWORD }}
+          packages-dir: ${{ matrix.path }}/dist/

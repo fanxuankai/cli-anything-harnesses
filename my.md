@@ -4,13 +4,11 @@
 
 PyPI 自动发布走 `.github/workflows/publish-pypi.yml`。
 
-- 手动触发 `Publish PyPI`，选择 `all`、`ms` 或 `cliproxyapi`
-- 发布 GitHub Release 时自动尝试发布两个包
-- PyPI 需要配置 Trusted Publishing：
-  - Owner: `fanxuankai`
-  - Repository: `cli-anything-harnesses`
-  - Workflow: `publish-pypi.yml`
-  - Environment: `pypi`
+- 推送到 `main` 且 `agent-harness/ms/setup.py` 或 `agent-harness/cliproxyapi/setup.py` 变化时触发
+- 读取 `setup.py` 的 `version`，PyPI 上没有该版本才发布
+- GitHub 仓库 Secrets 需要配置：
+  - `TWINE_USERNAME=__token__`
+  - `TWINE_PASSWORD=pypi-xxx`
 
 ### 手动发布
 
