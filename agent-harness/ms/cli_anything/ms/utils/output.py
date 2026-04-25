@@ -394,6 +394,51 @@ def output_cloud_resource_download(result: dict[str, Any]) -> None:
         console.print(f"[cyan]message[/cyan]: {message}")
 
 
+def output_cloud_resource_rank(result: dict[str, Any]) -> None:
+    range_type = str(result.get("range_type", "") or "")
+    stat_type = str(result.get("stat_type", "") or "")
+    items = result.get("items") or []
+    mine = result.get("mine") if isinstance(result.get("mine"), dict) else {}
+
+    range_label = {"today": "今日榜", "week": "7天榜", "all": "总榜"}.get(range_type, range_type)
+    stat_label = {"count": "荣耀数量榜", "size": "洪荒封神榜"}.get(stat_type, stat_type)
+    console.print("[bold]Cloud Resource Rank[/bold]")
+    console.print(f"[cyan]Range[/cyan]: {range_label} / [cyan]Stat[/cyan]: {stat_label}")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+    else:
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("Rank")
+        table.add_column("Creator")
+        table.add_column("Count")
+        table.add_column("Size")
+        table.add_column("Value")
+
+        for item in items:
+            creator_id = item.get("creator_id")
+            creator = str(item.get("creator", "") or "")
+            creator_text = creator if creator_id in (None, "", 0) else f"{creator} ({creator_id})"
+            table.add_row(
+                str(item.get("rank", "") or ""),
+                creator_text,
+                f"{item.get('count', 0)} 次",
+                str(item.get("size_text", "") or _format_bytes(item.get("size"))),
+                str(item.get("value_text", "") or item.get("value", "")),
+            )
+
+        console.print(table)
+
+    if mine:
+        rank = mine.get("rank") or "--"
+        surpass = _format_percent(mine.get("surpass_percent"))
+        console.print(
+            f"[cyan]Mine[/cyan]: {mine.get('creator', '我')} / "
+            f"Rank {rank} / {mine.get('value_text', '')} / "
+            f"Surpass {surpass}"
+        )
+
+
 def output_subscribe_page(result: dict[str, Any], media_type: str) -> None:
     total = result.get("total", 0)
     page_num = result.get("pageNum", 1)
@@ -455,6 +500,16 @@ def _format_bytes(value: Any) -> str:
     if unit_idx == 0:
         return f"{int(size)} {units[unit_idx]}"
     return f"{size:.2f} {units[unit_idx]}"
+
+
+def _format_percent(value: Any) -> str:
+    try:
+        percent = float(value or 0)
+    except (TypeError, ValueError):
+        percent = 0.0
+    percent = min(100.0, max(0.0, percent))
+    text = f"{percent:.2f}".rstrip("0").rstrip(".")
+    return f"{text}%"
 
 
 def _print_data(data: Any) -> None:

@@ -136,6 +136,13 @@ class TestCLIHelp:
         assert result.returncode == 0
         assert "--request" in result.stdout
 
+    def test_cloud_resource_rank_help(self):
+        result = _cli("cloud-resource", "rank", "--help")
+
+        assert result.returncode == 0
+        assert "--range" in result.stdout
+        assert "--stat" in result.stdout
+
     def test_plugin_call_help(self):
         result = _cli("plugin", "call", "--help")
 
@@ -214,6 +221,24 @@ class TestLiveServer:
             if payload["list"]:
                 item = payload["list"][0]
                 assert {"title", "size", "driver", "creator", "link", "downloadable", "download_request"}.issubset(item.keys())
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_cloud_resource_rank_today_count(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["cloud-resource", "rank", "--range", "today", "--stat", "count"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert {"range_type", "stat_type", "items", "mine"}.issubset(payload.keys())
+            assert isinstance(payload["items"], list)
         else:
             assert "error" in payload
 

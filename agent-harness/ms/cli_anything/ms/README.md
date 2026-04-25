@@ -2,7 +2,7 @@
 
 ms 后端的最小可用 CLI harness。
 
-当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download`、`media-server miss-episodes-check`、`plugin call` 和 `subscribe add`。
+当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download/rank`、`media-server miss-episodes-check`、`plugin call` 和 `subscribe add`。
 
 ## 安装
 
@@ -216,6 +216,26 @@ cli-anything-ms cloud-resource download --request '{"type":200,"contents":["..."
 
 `--dir` 不传时使用后端默认云下载或默认转存目录。下载命令只提交任务，不等待任务完成。
 
+查看云端资源贡献榜：
+
+```bash
+cli-anything-ms cloud-resource rank --range today --stat count
+```
+
+查看洪荒封神榜（按体积）：
+
+```bash
+cli-anything-ms cloud-resource rank --range today --stat size
+```
+
+JSON 输出：
+
+```bash
+cli-anything-ms --json cloud-resource rank --range week --stat count
+```
+
+`--range` 支持 `today`、`week`、`all`，`--stat` 支持 `count`、`size`。需要刷新后端缓存时追加 `--refresh`。
+
 ## REPL
 
 在交互终端中直接运行 `cli-anything-ms` 会进入 REPL：
@@ -264,6 +284,7 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `media recommend`
 - `cloud-resource search`
 - `cloud-resource download`
+- `cloud-resource rank`
 - `media-server miss-episodes-check`
 - `plugin call`
 - `subscribe page`

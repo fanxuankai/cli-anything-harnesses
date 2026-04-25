@@ -8,6 +8,8 @@ from .client import MSClient
 
 
 MEDIA_TYPE_CHOICES = ("movie", "tv")
+CLOUD_RESOURCE_RANK_RANGE_CHOICES = ("today", "week", "all")
+CLOUD_RESOURCE_RANK_STAT_CHOICES = ("count", "size")
 LINK_TYPE_LABELS = {
     100: "PT",
     110: "磁力",
@@ -91,6 +93,38 @@ class CloudResourceManager:
             "message": response.message,
         }
 
+    def rank(self, *, range_type: str = "today", stat_type: str = "count", refresh: bool = False) -> dict[str, Any]:
+        range_type = (range_type or "").strip().lower()
+        stat_type = (stat_type or "").strip().lower()
+        self._validate_rank(range_type=range_type, stat_type=stat_type)
+
+        params = {
+            "rangeType": range_type,
+            "statType": stat_type,
+            "refresh": "true" if refresh else "false",
+        }
+        list_response = self.client.request("GET", "/api/v1/system/hashReportStatistic", params=params)
+        if not list_response.ok:
+            message = list_response.message or f"Cloud resource rank failed with HTTP {list_response.status_code}"
+            raise ValueError(message)
+        if not isinstance(list_response.data, list):
+            raise ValueError("Cloud resource rank returned an unexpected response payload")
+
+        mine_response = self.client.request("GET", "/api/v1/system/hashReportStatisticMine", params=params)
+        if not mine_response.ok:
+            message = mine_response.message or f"Cloud resource rank mine failed with HTTP {mine_response.status_code}"
+            raise ValueError(message)
+        if mine_response.data is not None and not isinstance(mine_response.data, dict):
+            raise ValueError("Cloud resource rank mine returned an unexpected response payload")
+
+        items = [self._normalize_rank_item(item, rank=index + 1, stat_type=stat_type) for index, item in enumerate(list_response.data)]
+        return {
+            "range_type": range_type,
+            "stat_type": stat_type,
+            "items": items,
+            "mine": self._normalize_rank_mine(mine_response.data or {}, stat_type=stat_type),
+        }
+
     def _validate_search(
         self,
         *,
@@ -105,6 +139,12 @@ class CloudResourceManager:
             raise ValueError("--type must be movie or tv")
         if not keyword and creator_id is None and not (tmdb_id is not None and media_type):
             raise ValueError("Cloud resource search requires --keyword, --creator-id, or --tmdb-id with --type")
+
+    def _validate_rank(self, *, range_type: str, stat_type: str) -> None:
+        if range_type not in CLOUD_RESOURCE_RANK_RANGE_CHOICES:
+            raise ValueError("--range must be today, week, or all")
+        if stat_type not in CLOUD_RESOURCE_RANK_STAT_CHOICES:
+            raise ValueError("--stat must be count or size")
 
     def _normalize_page(self, data: dict[str, Any]) -> dict[str, Any]:
         items = data.get("list") or []
@@ -219,6 +259,46 @@ class CloudResourceManager:
             payload["csCreator"] = cs_creator
         return payload
 
+    def _normalize_rank_item(self, item: Any, *, rank: int, stat_type: str) -> dict[str, Any]:
+        if not isinstance(item, dict):
+            item = {}
+        creator_id = self._to_int(item.get("creator_id", item.get("creatorId"))) or 0
+        count = self._to_int(item.get("count")) or 0
+        size = self._to_int(item.get("size")) or 0
+        value = size if stat_type == "size" else count
+        value_text = _format_bytes(size) if stat_type == "size" else f"{count} 次"
+        return {
+            "rank": rank,
+            "creator_id": creator_id,
+            "creator": str(item.get("creator", "") or "未知用户"),
+            "count": count,
+            "size": size,
+            "size_text": _format_bytes(size),
+            "value": value,
+            "value_text": value_text,
+        }
+
+    def _normalize_rank_mine(self, item: dict[str, Any], *, stat_type: str) -> dict[str, Any]:
+        creator_id = self._to_int(item.get("creator_id", item.get("creatorId"))) or 0
+        count = self._to_int(item.get("count")) or 0
+        size = self._to_int(item.get("size")) or 0
+        rank = self._to_int(item.get("rank")) or 0
+        surpass_percent = self._to_float(item.get("surpass_percent", item.get("surpassPercent"))) or 0.0
+        surpass_percent = min(100.0, max(0.0, surpass_percent))
+        value = size if stat_type == "size" else count
+        value_text = _format_bytes(size) if stat_type == "size" else f"{count} 次"
+        return {
+            "creator_id": creator_id,
+            "creator": str(item.get("creator", "") or "我"),
+            "count": count,
+            "size": size,
+            "size_text": _format_bytes(size),
+            "rank": rank,
+            "surpass_percent": surpass_percent,
+            "value": value,
+            "value_text": value_text,
+        }
+
     def _to_int(self, value: Any) -> Optional[int]:
         if value in (None, ""):
             return None
@@ -226,3 +306,26 @@ class CloudResourceManager:
             return int(value)
         except (TypeError, ValueError):
             return None
+
+    def _to_float(self, value: Any) -> Optional[float]:
+        if value in (None, ""):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+
+def _format_bytes(value: Any) -> str:
+    try:
+        size = float(value or 0)
+    except (TypeError, ValueError):
+        return ""
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    unit_idx = 0
+    while size >= 1024 and unit_idx < len(units) - 1:
+        size /= 1024
+        unit_idx += 1
+    if unit_idx == 0:
+        return f"{int(size)} {units[unit_idx]}"
+    return f"{size:.2f} {units[unit_idx]}"

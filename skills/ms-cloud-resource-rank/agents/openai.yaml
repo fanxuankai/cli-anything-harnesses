@@ -1,0 +1,4 @@
+interface:
+  display_name: "ms 云端资源贡献榜"
+  short_description: "用 ms CLI 查看云端资源 HASH 上报贡献榜和我的排名"
+  default_prompt: "使用 $ms-cloud-resource-rank 查看 ms 云端资源贡献榜，按用户要求选择数量榜、体积榜和时间范围。"

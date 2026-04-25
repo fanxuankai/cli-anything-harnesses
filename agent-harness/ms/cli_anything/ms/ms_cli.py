@@ -14,6 +14,7 @@ import click
 
 from . import __version__
 from .core.client import ConnectionConfig, MSClient
+from .core.cloud_resource import CLOUD_RESOURCE_RANK_RANGE_CHOICES, CLOUD_RESOURCE_RANK_STAT_CHOICES
 from .core.cloud_resource import MEDIA_TYPE_CHOICES as CLOUD_RESOURCE_MEDIA_TYPE_CHOICES
 from .core.cloud_resource import CloudResourceManager
 from .core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
@@ -22,6 +23,7 @@ from .core.subscribe import MEDIA_TYPE_CHOICES as SUBSCRIBE_MEDIA_TYPE_CHOICES
 from .core.subscribe import SubscribeManager
 from .utils.output import (
     output_cloud_resource_download,
+    output_cloud_resource_rank,
     output_cloud_resource_search,
     output_connection,
     output_error,
@@ -696,6 +698,48 @@ def cloud_resource_download(ctx: Context, request_json: str, dir_path: Optional[
             output_json(result)
         else:
             output_cloud_resource_download(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@cloud_resource.command("rank")
+@click.option(
+    "--range",
+    "range_type",
+    type=click.Choice(CLOUD_RESOURCE_RANK_RANGE_CHOICES, case_sensitive=False),
+    default="today",
+    show_default=True,
+    help="Rank range",
+)
+@click.option(
+    "--stat",
+    "stat_type",
+    type=click.Choice(CLOUD_RESOURCE_RANK_STAT_CHOICES, case_sensitive=False),
+    default="count",
+    show_default=True,
+    help="Statistic type",
+)
+@click.option("--refresh", is_flag=True, help="Refresh backend cache")
+@pass_ctx
+def cloud_resource_rank(ctx: Context, range_type: str, stat_type: str, refresh: bool) -> None:
+    """查看云端资源贡献榜。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.cloud_resource_mgr.rank(
+            range_type=range_type.lower(),
+            stat_type=stat_type.lower(),
+            refresh=refresh,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_cloud_resource_rank(result)
     except SystemExit:
         raise
     except Exception as exc:

@@ -831,6 +831,105 @@ class TestCloudResourceManager:
         with pytest.raises(ValueError, match="non-empty array"):
             manager.submit_download({"type": 300, "contents": []}, dir_path=None)
 
+    def test_rank_fetches_list_and_mine(self):
+        client = MagicMock()
+        client.request.side_effect = [
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data=[
+                    {"creator_id": 931, "creator": "Lucifer", "count": 2030, "size": 1099511627776},
+                    {"creatorId": 932, "creator": "清酒", "count": 1808, "size": 5368709120},
+                ],
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={"creator_id": 99, "creator": "我", "count": 5, "size": 1048576, "rank": 20, "surpass_percent": 39.39},
+                raw_body={},
+                is_standard_response=True,
+            ),
+        ]
+
+        result = CloudResourceManager(client).rank(range_type="today", stat_type="size", refresh=True)
+
+        assert result["range_type"] == "today"
+        assert result["stat_type"] == "size"
+        assert result["items"][0] == {
+            "rank": 1,
+            "creator_id": 931,
+            "creator": "Lucifer",
+            "count": 2030,
+            "size": 1099511627776,
+            "size_text": "1.00 TB",
+            "value": 1099511627776,
+            "value_text": "1.00 TB",
+        }
+        assert result["items"][1]["creator_id"] == 932
+        assert result["mine"]["rank"] == 20
+        assert result["mine"]["surpass_percent"] == 39.39
+        assert result["mine"]["value_text"] == "1.00 MB"
+        assert client.request.call_args_list[0].args == ("GET", "/api/v1/system/hashReportStatistic")
+        assert client.request.call_args_list[0].kwargs == {
+            "params": {"rangeType": "today", "statType": "size", "refresh": "true"}
+        }
+        assert client.request.call_args_list[1].args == ("GET", "/api/v1/system/hashReportStatisticMine")
+        assert client.request.call_args_list[1].kwargs == {
+            "params": {"rangeType": "today", "statType": "size", "refresh": "true"}
+        }
+
+    def test_rank_count_value_uses_count(self):
+        client = MagicMock()
+        client.request.side_effect = [
+            ApiResponse(status_code=200, ok=True, code=20000, message="SUCCESS", data=[{"creator": "小汐", "count": 2030, "size": 1}], raw_body={}, is_standard_response=True),
+            ApiResponse(status_code=200, ok=True, code=20000, message="SUCCESS", data={"count": 5, "size": 1, "rank": 20, "surpassPercent": 39.39}, raw_body={}, is_standard_response=True),
+        ]
+
+        result = CloudResourceManager(client).rank(range_type="week", stat_type="count", refresh=False)
+
+        assert result["items"][0]["value"] == 2030
+        assert result["items"][0]["value_text"] == "2030 次"
+        assert result["mine"]["surpass_percent"] == 39.39
+        assert result["mine"]["value_text"] == "5 次"
+
+    def test_rank_rejects_invalid_options(self):
+        manager = CloudResourceManager(MagicMock())
+
+        with pytest.raises(ValueError, match="--range must be today"):
+            manager.rank(range_type="month", stat_type="count")
+        with pytest.raises(ValueError, match="--stat must be count"):
+            manager.rank(range_type="today", stat_type="score")
+
+    def test_rank_rejects_unexpected_payloads(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"bad": "payload"},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        with pytest.raises(ValueError, match="unexpected response payload"):
+            CloudResourceManager(client).rank(range_type="today", stat_type="count")
+
+        client = MagicMock()
+        client.request.side_effect = [
+            ApiResponse(status_code=200, ok=True, code=20000, message="SUCCESS", data=[], raw_body={}, is_standard_response=True),
+            ApiResponse(status_code=200, ok=True, code=20000, message="SUCCESS", data=[], raw_body={}, is_standard_response=True),
+        ]
+
+        with pytest.raises(ValueError, match="rank mine returned an unexpected response payload"):
+            CloudResourceManager(client).rank(range_type="today", stat_type="count")
+
 
 class TestSubscribeManager:
 
@@ -1293,6 +1392,113 @@ class TestCLI:
 
         assert result.exit_code != 0
         assert "--request must be valid JSON" in result.output
+
+    def test_cloud_resource_rank_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_rank(self, *, range_type, stat_type, refresh):
+            assert range_type == "today"
+            assert stat_type == "count"
+            assert refresh is True
+            return {
+                "range_type": "today",
+                "stat_type": "count",
+                "items": [
+                    {
+                        "rank": 1,
+                        "creator_id": 931,
+                        "creator": "小汐",
+                        "count": 2030,
+                        "size": 100,
+                        "size_text": "100 B",
+                        "value": 2030,
+                        "value_text": "2030 次",
+                    }
+                ],
+                "mine": {
+                    "creator_id": 99,
+                    "creator": "我",
+                    "count": 5,
+                    "size": 1,
+                    "size_text": "1 B",
+                    "rank": 20,
+                    "surpass_percent": 39.39,
+                    "value": 5,
+                    "value_text": "5 次",
+                },
+            }
+
+        monkeypatch.setattr(CloudResourceManager, "rank", fake_rank)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "cloud-resource",
+                "rank",
+                "--range",
+                "today",
+                "--stat",
+                "count",
+                "--refresh",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["items"][0]["creator"] == "小汐"
+        assert payload["mine"]["rank"] == 20
+
+    def test_cloud_resource_rank_command_human_output(self, monkeypatch):
+        runner = CliRunner()
+        monkeypatch.setattr(
+            CloudResourceManager,
+            "rank",
+            lambda self, **kwargs: {
+                "range_type": "today",
+                "stat_type": "size",
+                "items": [
+                    {
+                        "rank": 1,
+                        "creator_id": 931,
+                        "creator": "小汐",
+                        "count": 2030,
+                        "size": 1099511627776,
+                        "size_text": "1.00 TB",
+                        "value": 1099511627776,
+                        "value_text": "1.00 TB",
+                    }
+                ],
+                "mine": {
+                    "creator": "我",
+                    "rank": 20,
+                    "value_text": "1.00 MB",
+                    "surpass_percent": 39.39,
+                },
+            },
+        )
+
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "cloud-resource",
+                "rank",
+                "--stat",
+                "size",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Cloud Resource Rank" in result.output
+        assert "小汐" in result.output
+        assert "Mine" in result.output
 
     def test_media_rank_sources_json(self, monkeypatch):
         runner = CliRunner()
