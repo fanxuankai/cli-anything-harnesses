@@ -14,8 +14,6 @@ HERMES_WEBHOOK_URL=https://...
 HERMES_WEBHOOK_SECRET=你的 webhook secret
 ```
 
-如果暂时还用旧的 `HERMES_WEBHOOK_TOKEN`，workflow 会把它作为 HMAC secret 回退使用。
-
 请求会带 `X-GitHub-Event`、`X-GitHub-Delivery` 和 `X-Hub-Signature-256`。skills 通知会带 `changed_files`、`skills` 和 `run_url`；PyPI 通知会带 `packages`、`cli`、`workflow_run_url` 和 `run_url`。
 
 ### GitHub Actions

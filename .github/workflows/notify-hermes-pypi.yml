@@ -197,7 +197,7 @@ jobs:
         id: sign
         if: ${{ steps.packages.outputs.package_count != '0' && steps.wait.outputs.visible_count != '0' }}
         env:
-          HERMES_WEBHOOK_SECRET: ${{ secrets.HERMES_WEBHOOK_SECRET || secrets.HERMES_WEBHOOK_TOKEN }}
+          HERMES_WEBHOOK_SECRET: ${{ secrets.HERMES_WEBHOOK_SECRET }}
           PAYLOAD_PATH: ${{ steps.payload.outputs.payload_path }}
         run: |
           if [ -z "$HERMES_WEBHOOK_SECRET" ]; then

@@ -58,21 +58,6 @@ hermes skills install fanxuankai/cli-anything-harnesses/skills/ms-sub --force
 GITHUB_TOKEN=你的 Github PAT
 ```
 
-## Hermes 通知
-
-`.github/workflows/notify-hermes.yml` 会在 `skills/**` 变更推送到 `main` 后通知 Hermes webhook，用于触发 Hermes 更新 skills。
-
-`.github/workflows/notify-hermes-pypi.yml` 会在 `Publish PyPI` workflow 成功后运行，读取发布 workflow 记录的实际发布包，等待这些包的新版本能通过 PyPI JSON API 查到，再通知 Hermes 更新 CLI。
-
-需要在 GitHub 仓库 Secrets 中配置：
-
-- `HERMES_WEBHOOK_URL`：Hermes 接收 CLI 和 skill 更新通知的 HTTP 地址。
-- `HERMES_WEBHOOK_SECRET`：Hermes webhook 的签名 secret。workflow 会生成 `X-Hub-Signature-256`。
-
-兼容旧配置：如果没有 `HERMES_WEBHOOK_SECRET`，workflow 会回退使用 `HERMES_WEBHOOK_TOKEN` 作为 HMAC secret。
-
-通知会带 `X-GitHub-Event`、`X-GitHub-Delivery` 和 `X-Hub-Signature-256` 请求头。skills 通知 payload 包含 GitHub 风格的 `event_type`、`repository`、`head_commit`、`sender`，以及 `changed_files`、`skills` 和 `run_url`。PyPI 通知 payload 包含 `packages`、`cli`、`workflow_run_url` 和 `run_url`。如果未配置 `HERMES_WEBHOOK_URL`，workflow 会跳过通知。
-
 ## Local Development
 
 从源码安装两个 harness：

@@ -111,7 +111,7 @@ jobs:
         id: sign
         if: ${{ steps.payload.outputs.change_count != '0' }}
         env:
-          HERMES_WEBHOOK_SECRET: ${{ secrets.HERMES_WEBHOOK_SECRET || secrets.HERMES_WEBHOOK_TOKEN }}
+          HERMES_WEBHOOK_SECRET: ${{ secrets.HERMES_WEBHOOK_SECRET }}
           PAYLOAD_PATH: ${{ steps.payload.outputs.payload_path }}
         run: |
           if [ -z "$HERMES_WEBHOOK_SECRET" ]; then
