@@ -1,7 +1,6 @@
 # CLI Anything Harnesses
 
 [![GitHub release](https://img.shields.io/github/v/release/fanxuankai/cli-anything-harnesses?sort=semver&display_name=tag)](https://github.com/fanxuankai/cli-anything-harnesses/releases)
-[![CI](https://github.com/fanxuankai/cli-anything-harnesses/actions/workflows/python-app.yml/badge.svg?branch=main)](https://github.com/fanxuankai/cli-anything-harnesses/actions/workflows/python-app.yml)
 [![Last commit](https://img.shields.io/github/last-commit/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/commits/main)
 [![Issues](https://img.shields.io/github/issues/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/issues)
 [![Pull requests](https://img.shields.io/github/issues-pr/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/pulls)
@@ -11,7 +10,7 @@
 
 一个基于 [CLI Anything](https://github.com/HKUDS/CLI-Anything) 开发的 harness 仓库。
 
-这里的每个 harness 都把一个具体软件、后端服务或已有系统整理成稳定的命令面，既适合人工运维，也适合 Agent 和 workflow 直接调用。
+这里的每个 harness 都把一个具体软件、后端服务或已有系统整理成稳定的命令面，既适合人工运维，也适合 Agent 和自动化流程直接调用。
 
 ## Packages
 
@@ -88,7 +87,7 @@ agent-harness/
   ms/                 # ms harness
   cliproxyapi/        # CLIProxyAPI harness
 skills/               # Codex / Agent skills
-.github/              # GitHub Actions and contribution templates
+.github/              # GitHub metadata and contribution templates
 ```
 
 ## Version Display
@@ -107,23 +106,10 @@ PyPI 当前版本通过对应包的公开发布版本展示：
 - <https://pypi.org/project/cli-anything-ms/>
 - <https://pypi.org/project/cli-anything-cliproxyapi/>
 
-## PyPI 发布
-
-`.github/workflows/publish-pypi.yml` 支持自动发布到 PyPI：
-
-- 触发方式：推送到 `main`，且 `agent-harness/ms/setup.py` 或 `agent-harness/cliproxyapi/setup.py` 发生变化。
-- 发布条件：读取对应 `setup.py` 的 `version`，如果 PyPI 上不存在该版本，就构建并发布；已存在的版本会跳过。
-
-发布使用 PyPI token。需要在 GitHub 仓库 Secrets 中配置：
-
-- `TWINE_USERNAME`：通常为 `__token__`
-- `TWINE_PASSWORD`：PyPI token，例如 `pypi-...`
-
 ## GitHub
 
 - Releases: <https://github.com/fanxuankai/cli-anything-harnesses/releases>
 - Tags: <https://github.com/fanxuankai/cli-anything-harnesses/tags>
-- Actions: <https://github.com/fanxuankai/cli-anything-harnesses/actions>
 - Issues: <https://github.com/fanxuankai/cli-anything-harnesses/issues>
 - Pull requests: <https://github.com/fanxuankai/cli-anything-harnesses/pulls>
 
