@@ -8,10 +8,10 @@ GitHub 仓库 Secrets：
 
 ```text
 HERMES_WEBHOOK_URL=https://...
-HERMES_WEBHOOK_TOKEN=可选
+HERMES_WEBHOOK_SECRET=你的 webhook secret
 ```
 
-payload 会带 `repository`、`ref`、`sha`、`changed_files`、`cli`、`skills` 和 `run_url`。
+payload 会带 `repo`、`repository`、`branch`、`sha`、`actor`、`message`、`changed_files`、`cli`、`skills` 和 `run_url`，并通过 `X-Hub-Signature-256` 发送 HMAC 签名。
 
 ### GitHub Actions
 

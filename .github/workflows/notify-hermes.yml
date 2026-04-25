@@ -1,9 +1,11 @@
 name: Notify Hermes
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
     paths:
+      - ".github/workflows/notify-hermes.yml"
       - "agent-harness/**"
       - "skills/**"
 
@@ -40,11 +42,11 @@ jobs:
           else:
               diff_range = "HEAD~1..HEAD"
 
-          watched_roots = ("agent-harness", "skills")
+          watched_paths = ("agent-harness", "skills", ".github/workflows/notify-hermes.yml")
 
           try:
               changed = subprocess.check_output(
-                  ["git", "diff", "--name-only", diff_range, "--", *watched_roots],
+                  ["git", "diff", "--name-only", diff_range, "--", *watched_paths],
                   text=True,
               ).splitlines()
           except subprocess.CalledProcessError:
@@ -66,10 +68,15 @@ jobs:
           )
 
           payload = {
-              "event": "cli_and_skills_changed",
+              "event": "github_action",
+              "type": "cli_and_skills_changed",
+              "repo": os.environ["GITHUB_REPOSITORY"],
               "repository": os.environ["GITHUB_REPOSITORY"],
               "ref": os.environ["GITHUB_REF"],
+              "branch": os.environ["GITHUB_REF_NAME"],
               "sha": after,
+              "actor": os.environ["GITHUB_ACTOR"],
+              "message": os.environ.get("GITHUB_EVENT_HEAD_COMMIT_MESSAGE", ""),
               "changed_files": changed,
               "cli": cli_names,
               "skills": skill_names,
@@ -81,20 +88,36 @@ jobs:
           output_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"payload_path={output_path}\n")
-              output.write(f"change_count={len(cli_names) + len(skill_names)}\n")
+              output.write(f"change_count={len(changed)}\n")
           PY
         env:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_EVENT_HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
 
       - name: Show Hermes payload
         run: |
           cat "${{ steps.payload.outputs.payload_path }}"
 
+      - name: Compute Hermes signature
+        id: sign
+        if: ${{ steps.payload.outputs.change_count != '0' }}
+        env:
+          HERMES_WEBHOOK_SECRET: ${{ secrets.HERMES_WEBHOOK_SECRET }}
+          PAYLOAD_PATH: ${{ steps.payload.outputs.payload_path }}
+        run: |
+          if [ -z "$HERMES_WEBHOOK_SECRET" ]; then
+            echo "HERMES_WEBHOOK_SECRET is not configured."
+            exit 1
+          fi
+
+          sig="sha256=$(openssl dgst -sha256 -hmac "$HERMES_WEBHOOK_SECRET" -binary "$PAYLOAD_PATH" | xxd -p -c 256)"
+          echo "signature=$sig" >> "$GITHUB_OUTPUT"
+
       - name: Notify Hermes webhook
         if: ${{ steps.payload.outputs.change_count != '0' }}
         env:
           HERMES_WEBHOOK_URL: ${{ secrets.HERMES_WEBHOOK_URL }}
-          HERMES_WEBHOOK_TOKEN: ${{ secrets.HERMES_WEBHOOK_TOKEN }}
+          HERMES_SIGNATURE: ${{ steps.sign.outputs.signature }}
           PAYLOAD_PATH: ${{ steps.payload.outputs.payload_path }}
         run: |
           if [ -z "$HERMES_WEBHOOK_URL" ]; then
@@ -108,11 +131,8 @@ jobs:
             --silent
             --request POST
             --header "Content-Type: application/json"
+            --header "X-Hub-Signature-256: ${HERMES_SIGNATURE}"
             --data-binary "@${PAYLOAD_PATH}"
           )
-
-          if [ -n "$HERMES_WEBHOOK_TOKEN" ]; then
-            args+=(--header "Authorization: Bearer ${HERMES_WEBHOOK_TOKEN}")
-          fi
 
           curl "${args[@]}" "$HERMES_WEBHOOK_URL"

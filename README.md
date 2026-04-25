@@ -65,9 +65,9 @@ GITHUB_TOKEN=你的 Github PAT
 需要在 GitHub 仓库 Secrets 中配置：
 
 - `HERMES_WEBHOOK_URL`：Hermes 接收 CLI 和 skill 更新通知的 HTTP 地址。
-- `HERMES_WEBHOOK_TOKEN`：可选。配置后会用 `Authorization: Bearer <token>` 发送。
+- `HERMES_WEBHOOK_SECRET`：Hermes webhook 的签名 secret。workflow 会生成 `X-Hub-Signature-256`。
 
-通知 payload 包含 `repository`、`ref`、`sha`、`changed_files`、`cli`、`skills` 和 `run_url`。如果未配置 `HERMES_WEBHOOK_URL`，workflow 会跳过通知。
+通知 payload 包含 `repo`、`repository`、`branch`、`sha`、`actor`、`message`、`changed_files`、`cli`、`skills` 和 `run_url`。如果未配置 `HERMES_WEBHOOK_URL`，workflow 会跳过通知。
 
 ## Local Development
 
