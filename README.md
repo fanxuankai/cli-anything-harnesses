@@ -15,22 +15,20 @@
 
 ## Packages
 
-| Harness | PyPI | CLI | Install |
-| --- | --- | --- | --- |
-| Media Saber | [![PyPI](https://img.shields.io/pypi/v/cli-anything-ms?label=cli-anything-ms)](https://pypi.org/project/cli-anything-ms/) | `cli-anything-ms` | `pip install cli-anything-ms` |
+| Harness     | PyPI                                                                                                                                                 | CLI                        | Install                                |
+|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|----------------------------------------|
+| Media Saber | [![PyPI](https://img.shields.io/pypi/v/cli-anything-ms?label=cli-anything-ms)](https://pypi.org/project/cli-anything-ms/)                            | `cli-anything-ms`          | `pip install cli-anything-ms`          |
 | CLIProxyAPI | [![PyPI](https://img.shields.io/pypi/v/cli-anything-cliproxyapi?label=cli-anything-cliproxyapi)](https://pypi.org/project/cli-anything-cliproxyapi/) | `cli-anything-cliproxyapi` | `pip install cli-anything-cliproxyapi` |
-
-PyPI 徽章会读取公开发布版本。包发布到 PyPI 前，徽章可能显示不可用或 package not found。
 
 ## Skills
 
-| Skill | 用途 | 安装 |
-| --- | --- | --- |
-| [`ms-sub`](skills/ms-sub/SKILL.md) | 搜索影视、订阅影视、查看订阅列表。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-sub` |
-| [`ms-gap-filler`](skills/ms-gap-filler/SKILL.md) | 检查电视剧漏集，或把漏集转成订阅补齐。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-gap-filler` |
-| [`ms-recommend`](skills/ms-recommend/SKILL.md) | 查看豆瓣、TMDB 等影视推荐。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-recommend` |
-| [`ms-rank`](skills/ms-rank/SKILL.md) | 查看豆瓣等影视榜单。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-rank` |
-| [`ms-zspace-state`](skills/ms-zspace-state/SKILL.md) | 查看极空间系统、硬件、磁盘、网络等状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-zspace-state` |
+| Skill                                                                  | 用途                   | 安装                                                                                  |
+|------------------------------------------------------------------------|----------------------|-------------------------------------------------------------------------------------|
+| [`ms-sub`](skills/ms-sub/SKILL.md)                                     | 搜索影视、订阅影视、查看订阅列表。    | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-sub`                   |
+| [`ms-gap-filler`](skills/ms-gap-filler/SKILL.md)                       | 检查电视剧漏集，或把漏集转成订阅补齐。  | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-gap-filler`            |
+| [`ms-recommend`](skills/ms-recommend/SKILL.md)                         | 查看豆瓣、TMDB 等影视推荐。     | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-recommend`             |
+| [`ms-rank`](skills/ms-rank/SKILL.md)                                   | 查看豆瓣等影视榜单。           | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-rank`                  |
+| [`ms-zspace-state`](skills/ms-zspace-state/SKILL.md)                   | 查看极空间系统、硬件、磁盘、网络等状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-zspace-state`          |
 | [`cli-anything-cliproxyapi`](skills/cli-anything-cliproxyapi/SKILL.md) | 管理 CLIProxyAPI 代理服务。 | `npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyapi` |
 
 ## Quick Start
