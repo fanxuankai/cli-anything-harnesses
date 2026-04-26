@@ -167,6 +167,32 @@ class TestCLIHelp:
         assert result.returncode == 0
         assert "--id" in result.stdout
 
+    def test_download_downloaders_help(self):
+        result = _cli("download", "downloaders", "--help")
+
+        assert result.returncode == 0
+        assert "downloaders" in result.stdout
+
+    def test_download_downloading_help(self):
+        result = _cli("download", "downloading", "--help")
+
+        assert result.returncode == 0
+        assert "--id" in result.stdout
+
+    def test_download_history_help(self):
+        result = _cli("download", "history", "--help")
+
+        assert result.returncode == 0
+        assert "--page-size" in result.stdout
+        assert "--type" in result.stdout
+
+    def test_download_pause_resume_delete_help(self):
+        for command in ("pause", "resume", "delete"):
+            result = _cli("download", command, "--help")
+
+            assert result.returncode == 0
+            assert "--id" in result.stdout
+
     def test_cloud_resource_search_help(self):
         result = _cli("cloud-resource", "search", "--help")
 
@@ -563,6 +589,62 @@ class TestLiveServer:
             assert isinstance(payload, dict)
             assert "uploaded" in payload
             assert "downloaded" in payload
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_download_downloaders(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["download", "downloaders"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert "total" in payload
+            assert "items" in payload
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_download_downloading(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["download", "downloading"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert "total" in payload
+            assert "items" in payload
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_download_history(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["download", "history", "--page", "1", "--page-size", "5"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert {"total", "pageNum", "pageSize", "list"}.issubset(payload.keys())
         else:
             assert "error" in payload
 

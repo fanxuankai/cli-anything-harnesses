@@ -2,7 +2,7 @@
 
 ms 后端的最小可用 CLI harness。
 
-当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download/rank`、`media-server`、`site`、`plugin call` 和 `subscribe add`。
+当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download/rank`、`media-server`、`site`、`download`、`plugin call` 和 `subscribe add`。
 
 ## 安装
 
@@ -264,6 +264,56 @@ cli-anything-ms --json site data latest
 cli-anything-ms --json site sign-in history --page 1 --page-size 20
 ```
 
+## 下载管理
+
+查看下载器列表：
+
+```bash
+cli-anything-ms download downloaders
+```
+
+查看下载中任务：
+
+```bash
+cli-anything-ms download downloading
+```
+
+按下载 ID 查看指定任务：
+
+```bash
+cli-anything-ms download downloading --id <download_id>
+```
+
+查看下载历史：
+
+```bash
+cli-anything-ms download history --page 1 --page-size 20
+```
+
+按标题、类型或站点过滤下载历史：
+
+```bash
+cli-anything-ms download history --title "庆余年" --type tv --site-name "馒头"
+```
+
+暂停、恢复或删除下载任务：
+
+```bash
+cli-anything-ms download pause --id <download_id>
+cli-anything-ms download resume --id <download_id>
+cli-anything-ms download delete --id <download_id>
+```
+
+只有需要同时删除已下载文件时才给删除命令追加 `--delete-file`。这些操作只提交任务，不等待下载器实际完成。
+
+JSON 输出：
+
+```bash
+cli-anything-ms --json download downloaders
+cli-anything-ms --json download downloading
+cli-anything-ms --json download history --page 1 --page-size 20
+```
+
 ## 云端资源
 
 搜索云端资源：
@@ -388,6 +438,12 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `site data latest`
 - `site sign-in history`
 - `site sign-in go`
+- `download downloaders`
+- `download downloading`
+- `download history`
+- `download pause`
+- `download resume`
+- `download delete`
 - `plugin call`
 - `subscribe page`
 - `subscribe add`

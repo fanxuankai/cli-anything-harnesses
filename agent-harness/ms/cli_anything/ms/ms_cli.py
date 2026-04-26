@@ -17,6 +17,8 @@ from .core.client import ConnectionConfig, MSClient
 from .core.cloud_resource import CLOUD_RESOURCE_RANK_RANGE_CHOICES, CLOUD_RESOURCE_RANK_STAT_CHOICES
 from .core.cloud_resource import MEDIA_TYPE_CHOICES as CLOUD_RESOURCE_MEDIA_TYPE_CHOICES
 from .core.cloud_resource import CloudResourceManager
+from .core.download import MEDIA_TYPE_CHOICES as DOWNLOAD_MEDIA_TYPE_CHOICES
+from .core.download import DownloadManager
 from .core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
 from .core.media_server import MEDIA_TYPE_CHOICES as MEDIA_SERVER_MEDIA_TYPE_CHOICES
 from .core.media_server import MediaServerManager
@@ -28,6 +30,10 @@ from .utils.output import (
     output_cloud_resource_rank,
     output_cloud_resource_search,
     output_connection,
+    output_download_history,
+    output_download_operation,
+    output_downloaders,
+    output_downloading,
     output_error,
     output_json,
     output_media_rank_categories,
@@ -74,6 +80,7 @@ class Context:
         self._site_mgr: Optional[SiteManager] = None
         self._subscribe_mgr: Optional[SubscribeManager] = None
         self._cloud_resource_mgr: Optional[CloudResourceManager] = None
+        self._download_mgr: Optional[DownloadManager] = None
 
     def setup(self, url: Optional[str], apikey: Optional[str]) -> None:
         self.conn = ConnectionConfig.resolve(url=url, api_key=apikey)
@@ -83,6 +90,7 @@ class Context:
         self._site_mgr = None
         self._subscribe_mgr = None
         self._cloud_resource_mgr = None
+        self._download_mgr = None
 
     @property
     def media_mgr(self) -> MediaManager:
@@ -123,6 +131,14 @@ class Context:
         if self._cloud_resource_mgr is None:
             self._cloud_resource_mgr = CloudResourceManager(self.client)
         return self._cloud_resource_mgr
+
+    @property
+    def download_mgr(self) -> DownloadManager:
+        if self.client is None:
+            raise ValueError("Client is not initialized")
+        if self._download_mgr is None:
+            self._download_mgr = DownloadManager(self.client)
+        return self._download_mgr
 
 
 pass_ctx = click.make_pass_decorator(Context, ensure=True)
@@ -1016,6 +1032,173 @@ def site_sign_in_go(ctx: Context, site_ids: tuple[int, ...]) -> None:
             output_json(result)
         else:
             output_site_sign_in(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+#
+# download 命令组
+#
+
+@main.group()
+@pass_ctx
+def download(ctx: Context) -> None:
+    """下载器和下载任务命令。"""
+
+
+@download.command("downloaders")
+@pass_ctx
+def download_downloaders(ctx: Context) -> None:
+    """查看下载器列表。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.download_mgr.downloaders()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_downloaders(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@download.command("downloading")
+@click.option("--id", "download_ids", multiple=True, help="Download ID. Repeat for multiple tasks")
+@pass_ctx
+def download_downloading(ctx: Context, download_ids: tuple[str, ...]) -> None:
+    """查看下载中任务。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.download_mgr.downloading(download_ids=list(download_ids) or None)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_downloading(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@download.command("history")
+@click.option("--title", help="Title filter")
+@click.option(
+    "--type",
+    "media_type",
+    type=click.Choice(DOWNLOAD_MEDIA_TYPE_CHOICES, case_sensitive=False),
+    help="Media type",
+)
+@click.option("--site-id", type=click.IntRange(min=1), help="Site ID")
+@click.option("--site-name", help="Site name filter")
+@click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
+@click.option("--page-size", type=click.IntRange(min=1), default=20, show_default=True, help="Page size")
+@pass_ctx
+def download_history(
+    ctx: Context,
+    title: Optional[str],
+    media_type: Optional[str],
+    site_id: Optional[int],
+    site_name: Optional[str],
+    page: int,
+    page_size: int,
+) -> None:
+    """查看下载历史。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.download_mgr.history(
+            title=title,
+            media_type=media_type.lower() if media_type else None,
+            site_id=site_id,
+            site_name=site_name,
+            page=page,
+            page_size=page_size,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_download_history(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@download.command("pause")
+@click.option("--id", "download_id", required=True, help="Download ID")
+@pass_ctx
+def download_pause(ctx: Context, download_id: str) -> None:
+    """暂停下载任务。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.download_mgr.pause(download_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_download_operation(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@download.command("resume")
+@click.option("--id", "download_id", required=True, help="Download ID")
+@pass_ctx
+def download_resume(ctx: Context, download_id: str) -> None:
+    """恢复下载任务。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.download_mgr.resume(download_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_download_operation(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@download.command("delete")
+@click.option("--id", "download_id", required=True, help="Download ID")
+@click.option("--delete-file", is_flag=True, help="Also delete downloaded files when backend supports it")
+@pass_ctx
+def download_delete(ctx: Context, download_id: str, delete_file: bool) -> None:
+    """删除下载任务。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.download_mgr.delete(download_id, delete_file=delete_file)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_download_operation(result)
     except SystemExit:
         raise
     except Exception as exc:

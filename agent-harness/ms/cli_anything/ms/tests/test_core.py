@@ -17,6 +17,7 @@ sys.path.insert(0, HARNESS_ROOT)
 
 from cli_anything.ms.core.client import ApiResponse, ConnectionConfig, MSClient
 from cli_anything.ms.core.cloud_resource import CloudResourceManager
+from cli_anything.ms.core.download import DownloadManager
 from cli_anything.ms.core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
 from cli_anything.ms.core.media_server import MediaServerManager
 from cli_anything.ms.core.site import SiteManager
@@ -1067,6 +1068,185 @@ class TestSiteManager:
         )
         with pytest.raises(ValueError, match="Site data total returned an unexpected response payload"):
             SiteManager(client).data_total()
+
+
+class TestDownloadManager:
+
+    def test_downloaders_uses_downloader_list_and_redacts_config(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[
+                {
+                    "id": 1,
+                    "type": 100,
+                    "name": "qb",
+                    "enabled": True,
+                    "default": True,
+                    "remark": "main",
+                    "config": {
+                        "url": "http://qb.test",
+                        "username": "admin",
+                        "password": "secret",
+                        "monitor": "/downloads",
+                        "moveMode": "copy",
+                    },
+                    "createdAt": 1777132907,
+                }
+            ],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = DownloadManager(client).downloaders()
+
+        assert result["total"] == 1
+        assert result["items"][0]["name"] == "qb"
+        assert result["items"][0]["url"] == "http://qb.test"
+        assert "password" not in result["items"][0]
+        client.request.assert_called_once_with("GET", "/api/v1/downloader/list")
+
+    def test_downloading_uses_download_ids_and_normalizes_items(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[
+                {
+                    "id": "abc",
+                    "title": "流浪地球",
+                    "mediaType": "movie",
+                    "year": 2019,
+                    "seasonEpisode": "",
+                    "speed": 1048576,
+                    "progress": 0.456,
+                    "state": "downloading",
+                    "paused": False,
+                    "torrentTitle": "torrent title",
+                    "savePath": "/downloads",
+                    "siteId": 2,
+                    "siteName": "馒头",
+                }
+            ],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = DownloadManager(client).downloading(download_ids=["abc"])
+
+        assert result["total"] == 1
+        assert result["items"][0]["speed_text"] == "1.00 MB/s"
+        assert result["items"][0]["progress_percent"] == 45.6
+        client.request.assert_called_once_with("POST", "/api/v1/download/downloading", json_body={"downloadIds": ["abc"]})
+
+    def test_history_uses_filters_and_normalizes_page(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={
+                "total": 1,
+                "pageNum": 2,
+                "pageSize": 5,
+                "list": [
+                    {
+                        "id": 10,
+                        "title": "庆余年",
+                        "mediaType": "tv",
+                        "year": 2019,
+                        "tmdbId": 95842,
+                        "siteId": 2,
+                        "siteName": "馒头",
+                        "torrentTitle": "torrent",
+                        "seasonEpisode": "S01E01",
+                        "savePath": "/downloads",
+                        "downloadId": "hash",
+                        "createdAt": 1777132907,
+                    }
+                ],
+            },
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = DownloadManager(client).history(
+            title="庆余年",
+            media_type="tv",
+            site_id=2,
+            site_name="馒头",
+            page=2,
+            page_size=5,
+        )
+
+        assert result["total"] == 1
+        assert result["list"][0]["download_id"] == "hash"
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/download/history",
+            params={
+                "pageNum": "2",
+                "pageSize": "5",
+                "title": "庆余年",
+                "mediaType": "tv",
+                "siteId": "2",
+                "siteName": "馒头",
+            },
+        )
+
+    def test_pause_resume_delete_use_expected_endpoints(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=True,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = DownloadManager(client)
+        assert manager.pause("abc")["action"] == "pause"
+        assert manager.resume("abc")["action"] == "resume"
+        assert manager.delete("abc", delete_file=True)["action"] == "delete"
+
+        client.request.assert_any_call("GET", "/api/v1/download/pause/abc", params=None)
+        client.request.assert_any_call("GET", "/api/v1/download/resume/abc", params=None)
+        client.request.assert_any_call("DELETE", "/api/v1/download/delete/abc", params={"deleteFile": "true"})
+
+    def test_download_methods_reject_unexpected_payloads(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"not": "a-list"},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        with pytest.raises(ValueError, match="Downloader list returned an unexpected response payload"):
+            DownloadManager(client).downloaders()
+
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[],
+            raw_body={},
+            is_standard_response=True,
+        )
+        with pytest.raises(ValueError, match="Download history returned an unexpected response payload"):
+            DownloadManager(client).history()
 
 
 class TestCloudResourceManager:
@@ -2936,6 +3116,150 @@ class TestCLI:
         payload = json.loads(result.output)
         assert payload["status"] == "submitted"
         assert payload["site_ids"] == [1, 2]
+
+    def test_download_downloading_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_downloading(self, *, download_ids):
+            assert download_ids == ["abc"]
+            return {"total": 1, "items": [{"id": "abc", "title": "流浪地球", "progress_percent": 45.6}]}
+
+        monkeypatch.setattr(DownloadManager, "downloading", fake_downloading)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "download",
+                "downloading",
+                "--id",
+                "abc",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["items"][0]["id"] == "abc"
+
+    def test_download_history_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_history(self, *, title, media_type, site_id, site_name, page, page_size):
+            assert title == "庆余年"
+            assert media_type == "tv"
+            assert site_id == 2
+            assert site_name == "馒头"
+            assert page == 2
+            assert page_size == 5
+            return {"total": 1, "pageNum": 2, "pageSize": 5, "list": [{"id": 1, "title": "庆余年"}]}
+
+        monkeypatch.setattr(DownloadManager, "history", fake_history)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "download",
+                "history",
+                "--title",
+                "庆余年",
+                "--type",
+                "tv",
+                "--site-id",
+                "2",
+                "--site-name",
+                "馒头",
+                "--page",
+                "2",
+                "--page-size",
+                "5",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["list"][0]["title"] == "庆余年"
+
+    def test_download_pause_resume_delete_commands_json(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(DownloadManager, "pause", lambda self, download_id: {"status": "submitted", "action": "pause", "download_id": download_id})
+        monkeypatch.setattr(DownloadManager, "resume", lambda self, download_id: {"status": "submitted", "action": "resume", "download_id": download_id})
+
+        def fake_delete(self, download_id, *, delete_file):
+            assert delete_file is True
+            return {"status": "submitted", "action": "delete", "download_id": download_id}
+
+        monkeypatch.setattr(DownloadManager, "delete", fake_delete)
+
+        for command in ("pause", "resume"):
+            result = runner.invoke(
+                main,
+                [
+                    "--url",
+                    "http://localhost:8899",
+                    "--apikey",
+                    "secret-key",
+                    "--json",
+                    "download",
+                    command,
+                    "--id",
+                    "abc",
+                ],
+            )
+            assert result.exit_code == 0
+            assert json.loads(result.output)["action"] == command
+
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "download",
+                "delete",
+                "--id",
+                "abc",
+                "--delete-file",
+            ],
+        )
+        assert result.exit_code == 0
+        assert json.loads(result.output)["action"] == "delete"
+
+    def test_downloaders_command_human_output(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(
+            DownloadManager,
+            "downloaders",
+            lambda self: {
+                "total": 1,
+                "items": [{"id": 1, "name": "qb", "type": 100, "enabled": True, "default": True, "url": "http://qb.test"}],
+            },
+        )
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "download",
+                "downloaders",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Downloaders" in result.output
+        assert "qb" in result.output
 
     def test_plugin_call_json(self, monkeypatch):
         runner = CliRunner()

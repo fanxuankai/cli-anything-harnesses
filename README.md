@@ -4,7 +4,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/commits/main)
 [![Issues](https://img.shields.io/github/issues/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/issues)
 [![Pull requests](https://img.shields.io/github/issues-pr/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/pulls)
-[![Skills](https://img.shields.io/badge/skills-7-2f6f9f)](#skills)
+[![Skills](https://img.shields.io/badge/skills-12-2f6f9f)](#skills)
 [![PyPI - cli-anything-ms](https://img.shields.io/pypi/v/cli-anything-ms?label=cli-anything-ms)](https://pypi.org/project/cli-anything-ms/)
 [![PyPI - cli-anything-cliproxyapi](https://img.shields.io/pypi/v/cli-anything-cliproxyapi?label=cli-anything-cliproxyapi)](https://pypi.org/project/cli-anything-cliproxyapi/)
 
@@ -28,6 +28,11 @@
 | [`ms-recommend`](skills/ms-recommend/SKILL.md)                         | 查看豆瓣、TMDB 等影视推荐。     | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-recommend`             |
 | [`ms-rank`](skills/ms-rank/SKILL.md)                                   | 查看豆瓣等影视榜单。           | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-rank`                  |
 | [`ms-cloud-resource`](skills/ms-cloud-resource/SKILL.md)               | 查询云端资源，并提交云下载或转存任务。  | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-cloud-resource`        |
+| [`ms-cloud-resource-rank`](skills/ms-cloud-resource-rank/SKILL.md)     | 查看云端资源 HASH 上报贡献榜。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-cloud-resource-rank`   |
+| [`ms-media-server`](skills/ms-media-server/SKILL.md)                   | 查看媒体服务器、同步统计、媒体库和播放列表。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-media-server`          |
+| [`ms-site-state`](skills/ms-site-state/SKILL.md)                       | 查看站点状态、站点统计、上传下载量和签到状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-site-state`            |
+| [`ms-site-signin`](skills/ms-site-signin/SKILL.md)                     | 查看或执行站点签到。          | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-site-signin`           |
+| [`ms-download`](skills/ms-download/SKILL.md)                           | 查看下载器、下载中任务和下载历史。    | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-download`              |
 | [`ms-zspace-state`](skills/ms-zspace-state/SKILL.md)                   | 查看极空间系统、硬件、磁盘、网络等状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-zspace-state`          |
 | [`cli-anything-cliproxyapi`](skills/cli-anything-cliproxyapi/SKILL.md) | 管理 CLIProxyAPI 代理服务。 | `npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyapi` |
 
@@ -78,6 +83,17 @@ python -m pytest agent-harness/cliproxyapi/cli_anything/cliproxyapi/tests
 ```bash
 cli-anything-ms --json media recommend sources
 cli-anything-cliproxyapi --json server status
+```
+
+常用 ms 下载管理命令：
+
+```bash
+cli-anything-ms --json download downloaders
+cli-anything-ms --json download downloading
+cli-anything-ms --json download history --page 1 --page-size 20
+cli-anything-ms --json download pause --id <download_id>
+cli-anything-ms --json download resume --id <download_id>
+cli-anything-ms --json download delete --id <download_id>
 ```
 
 ## Project Layout

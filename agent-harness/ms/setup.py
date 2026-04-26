@@ -3,7 +3,7 @@ from setuptools import find_namespace_packages, setup
 
 setup(
     name="cli-anything-ms",
-    version="0.9.0",
+    version="0.10.0",
     description="CLI harness for ms backend",
     packages=find_namespace_packages(include=["cli_anything.*"]),
     python_requires=">=3.9",

@@ -851,6 +851,109 @@ def output_site_sign_in(result: dict[str, Any]) -> None:
         console.print(f"Message: {result.get('message')}")
 
 
+def output_downloaders(result: dict[str, Any]) -> None:
+    console.print("[bold]Downloaders[/bold]")
+    items = result.get("items") or []
+    console.print(f"Total: {result.get('total', len(items))}")
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("ID")
+    table.add_column("Name")
+    table.add_column("Type")
+    table.add_column("Enabled")
+    table.add_column("Default")
+    table.add_column("URL")
+    table.add_column("Monitor")
+    table.add_column("Remark")
+    for item in items:
+        table.add_row(
+            _text(item.get("id")),
+            _text(item.get("name")),
+            _text(item.get("type")),
+            "yes" if item.get("enabled") else "no",
+            "yes" if item.get("default") else "no",
+            _text(item.get("url")),
+            _text(item.get("monitor")),
+            _text(item.get("remark")),
+        )
+    console.print(table)
+
+
+def output_downloading(result: dict[str, Any]) -> None:
+    console.print("[bold]Downloading[/bold]")
+    items = result.get("items") or []
+    console.print(f"Total: {result.get('total', len(items))}")
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("ID")
+    table.add_column("Title")
+    table.add_column("Progress")
+    table.add_column("Speed")
+    table.add_column("State")
+    table.add_column("Paused")
+    table.add_column("Site")
+    table.add_column("Save Path")
+    for item in items:
+        table.add_row(
+            _text(item.get("id")),
+            _text(item.get("title") or item.get("torrent_title")),
+            f"{item.get('progress_percent', 0)}%",
+            _text(item.get("speed_text")),
+            _text(item.get("state")),
+            "yes" if item.get("paused") else "no",
+            _text(item.get("site_name")),
+            _text(item.get("save_path")),
+        )
+    console.print(table)
+
+
+def output_download_history(result: dict[str, Any]) -> None:
+    console.print("[bold]Download History[/bold]")
+    items = result.get("list") or []
+    console.print(
+        f"Page: {result.get('pageNum', 1)} / Page Size: {result.get('pageSize', len(items))} / Total: {result.get('total', 0)}"
+    )
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("ID")
+    table.add_column("Title")
+    table.add_column("Type")
+    table.add_column("Year")
+    table.add_column("Site")
+    table.add_column("Torrent")
+    table.add_column("Download ID")
+    table.add_column("Created At")
+    for item in items:
+        table.add_row(
+            _text(item.get("id")),
+            _text(item.get("title")),
+            _text(item.get("media_type")),
+            _text(item.get("year")),
+            _text(item.get("site_name")),
+            _text(item.get("torrent_title")),
+            _text(item.get("download_id")),
+            _text(item.get("created_at_text")),
+        )
+    console.print(table)
+
+
+def output_download_operation(result: dict[str, Any]) -> None:
+    action = _text(result.get("action"))
+    console.print(f"[bold green]下载任务 {action} 已提交[/bold green]")
+    console.print(f"Download ID: {result.get('download_id', '')}")
+    if result.get("message"):
+        console.print(f"Message: {result.get('message')}")
+
+
 def _format_missing_episodes(episodes: list[Any], limit: int = 20) -> str:
     normalized = [str(item) for item in episodes]
     if len(normalized) <= limit:

@@ -1,0 +1,4 @@
+interface:
+  display_name: "ms 下载管理"
+  short_description: "用 ms CLI 查看下载器、下载中任务和下载历史，并在明确要求时暂停、恢复或删除任务"
+  default_prompt: "使用 $ms-download 查询 ms 下载器、下载中任务和下载历史，必要时管理具体下载任务。"
