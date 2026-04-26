@@ -19,6 +19,7 @@ from cli_anything.ms.core.client import ApiResponse, ConnectionConfig, MSClient
 from cli_anything.ms.core.cloud_resource import CloudResourceManager
 from cli_anything.ms.core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
 from cli_anything.ms.core.media_server import MediaServerManager
+from cli_anything.ms.core.site import SiteManager
 from cli_anything.ms.core.subscribe import SubscribeManager
 from cli_anything.ms.ms_cli import main
 
@@ -883,6 +884,189 @@ class TestMediaServerManager:
         assert len(result["items"]) == 20
         assert result["items"][0]["title"] == "title-0"
         assert result["items"][-1]["title"] == "title-19"
+
+
+class TestSiteManager:
+
+    def test_list_uses_site_list_endpoint_and_redacts_sensitive_fields(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[
+                {
+                    "id": 1,
+                    "code": "mteam",
+                    "name": "馒头",
+                    "enabled": True,
+                    "priority": 1,
+                    "userId": "user-1",
+                    "domainDisplay": "https://example.test",
+                    "cookie": "secret-cookie",
+                    "signIn": True,
+                    "statistic": True,
+                    "search": True,
+                    "message": False,
+                }
+            ],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = SiteManager(client).list(name="馒头", enabled=True, switch_type="sign-in")
+
+        assert result["total"] == 1
+        assert result["items"][0]["name"] == "馒头"
+        assert result["items"][0]["switches"]["sign_in"] is True
+        assert "cookie" not in result["items"][0]
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/site/list",
+            params={"name": "馒头", "enabled": "true", "type": "600"},
+        )
+
+    def test_data_total_and_latest_use_site_data_endpoints(self):
+        client = MagicMock()
+        client.request.side_effect = [
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={
+                    "uploaded": 1099511627776,
+                    "downloaded": 536870912,
+                    "bonus": 12345.6,
+                    "seedingCount": 88,
+                    "seedingSize": 2147483648,
+                },
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data=[
+                    {
+                        "id": 10,
+                        "siteId": 1,
+                        "siteCode": "mteam",
+                        "siteName": "馒头",
+                        "siteDomainDisplay": "https://example.test",
+                        "isLogin": True,
+                        "signedIn": False,
+                        "ratio": 2.5,
+                        "uploaded": 1024,
+                        "downloaded": 512,
+                        "bonus": 99,
+                        "seedingCount": 3,
+                        "seedingSize": 2048,
+                        "todayUploaded": 128,
+                        "todayDownloaded": 64,
+                        "statisticDate": "2026-04-26",
+                    }
+                ],
+                raw_body={},
+                is_standard_response=True,
+            ),
+        ]
+
+        manager = SiteManager(client)
+        total = manager.data_total()
+        latest = manager.data_latest(site_id=1, site_name="馒头", order_by="uploaded", order_direction="desc")
+
+        assert total["uploaded_text"] == "1.00 TB"
+        assert latest["items"][0]["site_name"] == "馒头"
+        assert latest["items"][0]["uploaded_text"] == "1.00 KB"
+        client.request.assert_any_call("GET", "/api/v1/siteData/total")
+        client.request.assert_any_call(
+            "GET",
+            "/api/v1/siteData/latest",
+            params={"siteId": "1", "siteName": "馒头", "orderBy": "uploaded", "orderDirection": "desc"},
+        )
+
+    def test_sign_in_history_and_go_use_expected_endpoints(self):
+        client = MagicMock()
+        client.request.side_effect = [
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={
+                    "total": 1,
+                    "pageNum": 2,
+                    "pageSize": 5,
+                    "list": [
+                        {
+                            "id": 7,
+                            "siteId": 1,
+                            "siteCode": "mteam",
+                            "siteName": "馒头",
+                            "code": 100,
+                            "content": "签到成功",
+                            "createdAt": 1777132907,
+                        }
+                    ],
+                },
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data=True,
+                raw_body={},
+                is_standard_response=True,
+            ),
+        ]
+
+        manager = SiteManager(client)
+        history = manager.sign_in_history(site_name="馒头", page=2, page_size=5)
+        submitted = manager.sign_in(site_ids=[1, 2])
+
+        assert history["list"][0]["code_text"] == "签到成功"
+        assert submitted["status"] == "submitted"
+        assert submitted["site_ids"] == [1, 2]
+        client.request.assert_any_call(
+            "GET",
+            "/api/v1/siteSignIn/page",
+            params={"pageNum": "2", "pageSize": "5", "siteName": "馒头"},
+        )
+        client.request.assert_any_call("POST", "/api/v1/siteSignIn/go", json_body={"ids": [1, 2]})
+
+    def test_site_methods_reject_unexpected_payloads(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"not": "a-list"},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        with pytest.raises(ValueError, match="Site list returned an unexpected response payload"):
+            SiteManager(client).list()
+
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[],
+            raw_body={},
+            is_standard_response=True,
+        )
+        with pytest.raises(ValueError, match="Site data total returned an unexpected response payload"):
+            SiteManager(client).data_total()
 
 
 class TestCloudResourceManager:
@@ -2596,6 +2780,162 @@ class TestCLI:
         assert result.exit_code != 0
         payload = json.loads(result.output)
         assert payload["error"] == "404 page not found"
+
+    def test_site_list_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_list(self, *, name, enabled, switch_type):
+            assert name == "馒头"
+            assert enabled is True
+            assert switch_type == "sign-in"
+            return {
+                "total": 1,
+                "items": [
+                    {
+                        "id": 1,
+                        "name": "馒头",
+                        "code": "mteam",
+                        "enabled": True,
+                        "domain": "https://example.test",
+                        "switches": {"sign_in": True},
+                    }
+                ],
+            }
+
+        monkeypatch.setattr(SiteManager, "list", fake_list)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "site",
+                "list",
+                "--name",
+                "馒头",
+                "--enabled",
+                "true",
+                "--type",
+                "sign-in",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["items"][0]["name"] == "馒头"
+
+    def test_site_data_latest_command_human_output(self, monkeypatch):
+        runner = CliRunner()
+
+        monkeypatch.setattr(
+            SiteManager,
+            "data_latest",
+            lambda self, *, site_id, site_name, order_by, order_direction: {
+                "total": 1,
+                "items": [
+                    {
+                        "site_name": "馒头",
+                        "is_login": True,
+                        "signed_in": False,
+                        "ratio": 2.5,
+                        "uploaded_text": "1.00 TB",
+                        "downloaded_text": "500.00 GB",
+                        "bonus": 12345.6,
+                        "seeding_count": 88,
+                        "seeding_size_text": "2.00 TB",
+                        "statistic_date": "2026-04-26",
+                    }
+                ],
+            },
+        )
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "site",
+                "data",
+                "latest",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Site Data Latest" in result.output
+        assert "馒头" in result.output
+
+    def test_site_sign_in_history_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_sign_in_history(self, *, site_name, page, page_size):
+            assert site_name == "馒头"
+            assert page == 2
+            assert page_size == 5
+            return {
+                "total": 1,
+                "pageNum": 2,
+                "pageSize": 5,
+                "list": [{"site_name": "馒头", "code": 100, "code_text": "签到成功"}],
+            }
+
+        monkeypatch.setattr(SiteManager, "sign_in_history", fake_sign_in_history)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "site",
+                "sign-in",
+                "history",
+                "--site-name",
+                "馒头",
+                "--page",
+                "2",
+                "--page-size",
+                "5",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["list"][0]["code_text"] == "签到成功"
+
+    def test_site_sign_in_go_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_sign_in(self, *, site_ids):
+            assert site_ids == [1, 2]
+            return {"status": "submitted", "site_ids": site_ids, "all_enabled": False, "response": True, "message": "SUCCESS"}
+
+        monkeypatch.setattr(SiteManager, "sign_in", fake_sign_in)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "site",
+                "sign-in",
+                "go",
+                "--id",
+                "1",
+                "--id",
+                "2",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["status"] == "submitted"
+        assert payload["site_ids"] == [1, 2]
 
     def test_plugin_call_json(self, monkeypatch):
         runner = CliRunner()

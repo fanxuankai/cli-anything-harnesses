@@ -726,6 +726,131 @@ def output_media_server_sync_run(result: dict[str, Any]) -> None:
         console.print(f"Message: {result.get('message')}")
 
 
+def output_site_list(result: dict[str, Any]) -> None:
+    console.print("[bold]Sites[/bold]")
+    items = result.get("items") or []
+    console.print(f"Total: {result.get('total', len(items))}")
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("ID")
+    table.add_column("Name")
+    table.add_column("Code")
+    table.add_column("Enabled")
+    table.add_column("Search")
+    table.add_column("RSS")
+    table.add_column("Statistic")
+    table.add_column("Sign In")
+    table.add_column("Message")
+    table.add_column("Domain")
+    for item in items:
+        switches = item.get("switches") if isinstance(item.get("switches"), dict) else {}
+        table.add_row(
+            _text(item.get("id")),
+            _text(item.get("name")),
+            _text(item.get("code")),
+            "yes" if item.get("enabled") else "no",
+            "yes" if switches.get("search") else "no",
+            "yes" if switches.get("rss") else "no",
+            "yes" if switches.get("statistic") else "no",
+            "yes" if switches.get("sign_in") else "no",
+            "yes" if switches.get("message") else "no",
+            _text(item.get("domain")),
+        )
+    console.print(table)
+
+
+def output_site_data_total(result: dict[str, Any]) -> None:
+    console.print("[bold]Site Data Total[/bold]")
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Uploaded")
+    table.add_column("Downloaded")
+    table.add_column("Bonus")
+    table.add_column("Seeding Count", justify="right")
+    table.add_column("Seeding Size")
+    table.add_row(
+        _text(result.get("uploaded_text")),
+        _text(result.get("downloaded_text")),
+        _text(result.get("bonus")),
+        _text(result.get("seeding_count")),
+        _text(result.get("seeding_size_text")),
+    )
+    console.print(table)
+
+
+def output_site_data_latest(result: dict[str, Any]) -> None:
+    console.print("[bold]Site Data Latest[/bold]")
+    items = result.get("items") or []
+    console.print(f"Total: {result.get('total', len(items))}")
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Site")
+    table.add_column("Login")
+    table.add_column("Signed")
+    table.add_column("Ratio")
+    table.add_column("Uploaded")
+    table.add_column("Downloaded")
+    table.add_column("Bonus")
+    table.add_column("Seed")
+    table.add_column("Seeding Size")
+    table.add_column("Date")
+    for item in items:
+        table.add_row(
+            _text(item.get("site_name")),
+            "yes" if item.get("is_login") else "no",
+            "yes" if item.get("signed_in") else "no",
+            _text(item.get("ratio")),
+            _text(item.get("uploaded_text")),
+            _text(item.get("downloaded_text")),
+            _text(item.get("bonus")),
+            _text(item.get("seeding_count")),
+            _text(item.get("seeding_size_text")),
+            _text(item.get("statistic_date") or item.get("created_at_text")),
+        )
+    console.print(table)
+
+
+def output_site_sign_in_history(result: dict[str, Any]) -> None:
+    console.print("[bold]Site Sign-In History[/bold]")
+    items = result.get("list") or []
+    console.print(
+        f"Page: {result.get('pageNum', 1)} / Page Size: {result.get('pageSize', len(items))} / Total: {result.get('total', 0)}"
+    )
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Site")
+    table.add_column("Code")
+    table.add_column("Message")
+    table.add_column("Time")
+    for item in items:
+        table.add_row(
+            _text(item.get("site_name")),
+            _text(item.get("code_text")),
+            _text(item.get("message")),
+            _text(item.get("created_at_text")),
+        )
+    console.print(table)
+
+
+def output_site_sign_in(result: dict[str, Any]) -> None:
+    console.print("[bold green]站点签到任务已提交[/bold green]")
+    site_ids = result.get("site_ids") or []
+    if site_ids:
+        console.print(f"Site IDs: {', '.join(str(item) for item in site_ids)}")
+    elif result.get("all_enabled"):
+        console.print("Scope: all enabled sign-in sites")
+    if result.get("message"):
+        console.print(f"Message: {result.get('message')}")
+
+
 def _format_missing_episodes(episodes: list[Any], limit: int = 20) -> str:
     normalized = [str(item) for item in episodes]
     if len(normalized) <= limit:

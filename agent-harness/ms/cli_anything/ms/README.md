@@ -2,7 +2,7 @@
 
 ms 后端的最小可用 CLI harness。
 
-当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download/rank`、`media-server`、`plugin call` 和 `subscribe add`。
+当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download/rank`、`media-server`、`site`、`plugin call` 和 `subscribe add`。
 
 ## 安装
 
@@ -217,6 +217,53 @@ JSON 输出：
 cli-anything-ms --json subscribe page --type movie --page 1 --page-size 99
 ```
 
+## 站点状态和签到
+
+查看站点列表：
+
+```bash
+cli-anything-ms site list
+```
+
+查看站点总体统计：
+
+```bash
+cli-anything-ms site data total
+```
+
+查看各站最新统计：
+
+```bash
+cli-anything-ms site data latest
+```
+
+按站点名称查询：
+
+```bash
+cli-anything-ms site data latest --site-name "馒头"
+```
+
+查看签到记录：
+
+```bash
+cli-anything-ms site sign-in history --page 1 --page-size 20
+```
+
+提交指定站点签到：
+
+```bash
+cli-anything-ms site sign-in go --id 1
+```
+
+不传 `--id` 时由后端对所有开启签到的站点执行签到。签到命令只提交任务，不承诺所有站点已经签到成功。
+
+JSON 输出：
+
+```bash
+cli-anything-ms --json site data latest
+cli-anything-ms --json site sign-in history --page 1 --page-size 20
+```
+
 ## 云端资源
 
 搜索云端资源：
@@ -336,6 +383,11 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `media-server resume`
 - `media-server sync-run`
 - `media-server miss-episodes-check`
+- `site list`
+- `site data total`
+- `site data latest`
+- `site sign-in history`
+- `site sign-in go`
 - `plugin call`
 - `subscribe page`
 - `subscribe add`

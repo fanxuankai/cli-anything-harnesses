@@ -1,0 +1,4 @@
+interface:
+  display_name: "ms 站点状态"
+  short_description: "用 ms CLI 查看站点列表、登录状态、签到状态和上传下载统计"
+  default_prompt: "使用 $ms-site-state 查询 ms 站点状态和统计数据，并用中文汇总站点健康情况。"

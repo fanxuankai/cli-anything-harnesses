@@ -20,6 +20,7 @@ from .core.cloud_resource import CloudResourceManager
 from .core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
 from .core.media_server import MEDIA_TYPE_CHOICES as MEDIA_SERVER_MEDIA_TYPE_CHOICES
 from .core.media_server import MediaServerManager
+from .core.site import SITE_SWITCH_TYPE_CHOICES, SiteManager
 from .core.subscribe import MEDIA_TYPE_CHOICES as SUBSCRIBE_MEDIA_TYPE_CHOICES
 from .core.subscribe import SubscribeManager
 from .utils.output import (
@@ -47,6 +48,11 @@ from .utils.output import (
     output_media_server_sync_items,
     output_media_server_sync_run,
     output_plugin_call,
+    output_site_data_latest,
+    output_site_data_total,
+    output_site_list,
+    output_site_sign_in,
+    output_site_sign_in_history,
     output_subscribe_add,
     output_subscribe_page,
 )
@@ -65,6 +71,7 @@ class Context:
         self.client: Optional[MSClient] = None
         self._media_mgr: Optional[MediaManager] = None
         self._media_server_mgr: Optional[MediaServerManager] = None
+        self._site_mgr: Optional[SiteManager] = None
         self._subscribe_mgr: Optional[SubscribeManager] = None
         self._cloud_resource_mgr: Optional[CloudResourceManager] = None
 
@@ -73,6 +80,7 @@ class Context:
         self.client = MSClient(self.conn)
         self._media_mgr = None
         self._media_server_mgr = None
+        self._site_mgr = None
         self._subscribe_mgr = None
         self._cloud_resource_mgr = None
 
@@ -91,6 +99,14 @@ class Context:
         if self._media_server_mgr is None:
             self._media_server_mgr = MediaServerManager(self.client)
         return self._media_server_mgr
+
+    @property
+    def site_mgr(self) -> SiteManager:
+        if self.client is None:
+            raise ValueError("Client is not initialized")
+        if self._site_mgr is None:
+            self._site_mgr = SiteManager(self.client)
+        return self._site_mgr
 
     @property
     def subscribe_mgr(self) -> SubscribeManager:
@@ -151,6 +167,12 @@ def _parse_json_object_option(raw: str, option_name: str) -> dict:
         raise click.UsageError(f"{option_name} must be a JSON object")
 
     return payload
+
+
+def _parse_bool_option(value: Optional[str]) -> Optional[bool]:
+    if value is None:
+        return None
+    return value.lower() == "true"
 
 
 # ---- 根命令组 ----
@@ -832,6 +854,168 @@ def media_server_miss_episodes_check(ctx: Context) -> None:
             output_json(result)
         else:
             output_media_server_miss_episodes(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+#
+# site 命令组
+#
+
+@main.group()
+@pass_ctx
+def site(ctx: Context) -> None:
+    """站点状态和签到命令。"""
+
+
+@site.command("list")
+@click.option("--name", help="Site name filter")
+@click.option("--enabled", type=click.Choice(("true", "false"), case_sensitive=False), help="Filter enabled sites")
+@click.option(
+    "--type",
+    "switch_type",
+    type=click.Choice(tuple(SITE_SWITCH_TYPE_CHOICES.keys()), case_sensitive=False),
+    help="Filter by site switch type",
+)
+@pass_ctx
+def site_list(ctx: Context, name: Optional[str], enabled: Optional[str], switch_type: Optional[str]) -> None:
+    """查看站点列表。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.site_mgr.list(
+            name=name,
+            enabled=_parse_bool_option(enabled),
+            switch_type=switch_type.lower() if switch_type else None,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_site_list(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@site.group("data")
+@pass_ctx
+def site_data(ctx: Context) -> None:
+    """站点统计数据命令。"""
+
+
+@site_data.command("total")
+@pass_ctx
+def site_data_total(ctx: Context) -> None:
+    """查看站点总体统计。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.site_mgr.data_total()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_site_data_total(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@site_data.command("latest")
+@click.option("--site-id", type=click.IntRange(min=1), help="Site ID")
+@click.option("--site-name", help="Site name filter")
+@click.option("--order-by", help="Backend order field")
+@click.option(
+    "--order-direction",
+    type=click.Choice(("asc", "desc"), case_sensitive=False),
+    help="Order direction",
+)
+@pass_ctx
+def site_data_latest(
+    ctx: Context,
+    site_id: Optional[int],
+    site_name: Optional[str],
+    order_by: Optional[str],
+    order_direction: Optional[str],
+) -> None:
+    """查看最新站点统计。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.site_mgr.data_latest(
+            site_id=site_id,
+            site_name=site_name,
+            order_by=order_by,
+            order_direction=order_direction.lower() if order_direction else None,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_site_data_latest(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@site.group("sign-in")
+@pass_ctx
+def site_sign_in(ctx: Context) -> None:
+    """站点签到命令。"""
+
+
+@site_sign_in.command("history")
+@click.option("--site-name", help="Site name filter")
+@click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
+@click.option("--page-size", type=click.IntRange(min=1), default=20, show_default=True, help="Page size")
+@pass_ctx
+def site_sign_in_history(ctx: Context, site_name: Optional[str], page: int, page_size: int) -> None:
+    """查看站点签到记录。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.site_mgr.sign_in_history(site_name=site_name, page=page, page_size=page_size)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_site_sign_in_history(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@site_sign_in.command("go")
+@click.option("--id", "site_ids", type=click.IntRange(min=1), multiple=True, help="Site ID. Repeat for multiple sites")
+@pass_ctx
+def site_sign_in_go(ctx: Context, site_ids: tuple[int, ...]) -> None:
+    """提交站点签到任务。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.site_mgr.sign_in(site_ids=list(site_ids) or None)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_site_sign_in(result)
     except SystemExit:
         raise
     except Exception as exc:

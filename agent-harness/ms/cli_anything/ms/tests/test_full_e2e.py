@@ -142,6 +142,31 @@ class TestCLIHelp:
         assert result.returncode == 0
         assert "--id" in result.stdout
 
+    def test_site_list_help(self):
+        result = _cli("site", "list", "--help")
+
+        assert result.returncode == 0
+        assert "--enabled" in result.stdout
+        assert "--type" in result.stdout
+
+    def test_site_data_latest_help(self):
+        result = _cli("site", "data", "latest", "--help")
+
+        assert result.returncode == 0
+        assert "--site-name" in result.stdout
+
+    def test_site_sign_in_history_help(self):
+        result = _cli("site", "sign-in", "history", "--help")
+
+        assert result.returncode == 0
+        assert "--page-size" in result.stdout
+
+    def test_site_sign_in_go_help(self):
+        result = _cli("site", "sign-in", "go", "--help")
+
+        assert result.returncode == 0
+        assert "--id" in result.stdout
+
     def test_cloud_resource_search_help(self):
         result = _cli("cloud-resource", "search", "--help")
 
@@ -500,6 +525,44 @@ class TestLiveServer:
             assert isinstance(payload, dict)
             assert "total" in payload
             assert "items" in payload
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_site_list(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["site", "list"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert "total" in payload
+            assert "items" in payload
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_site_data_total(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["site", "data", "total"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, dict)
+            assert "uploaded" in payload
+            assert "downloaded" in payload
         else:
             assert "error" in payload
 
