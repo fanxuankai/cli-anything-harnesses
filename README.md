@@ -53,6 +53,7 @@ npx skills add fanxuankai/cli-anything-harnesses --skill ms-sub
 通过 Hermes 安装 skill：
 
 ```bash
+hermes skills tap add fanxuankai/cli-anything-harnesses
 hermes skills install fanxuankai/cli-anything-harnesses/skills/ms-sub --force
 ```
 
