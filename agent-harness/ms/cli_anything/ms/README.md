@@ -395,6 +395,20 @@ config show-connection
 media search --source tmdb --keyword Interstellar
 ```
 
+## 系统信息
+
+查看 NAS 当前信息：
+
+```bash
+cli-anything-ms system nas-info
+```
+
+JSON 输出：
+
+```bash
+cli-anything-ms --json system nas-info
+```
+
 ## 插件调用
 
 统一走 `/api/v1/pluginsInstance/callByCode/:code`。
@@ -417,6 +431,7 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 
 - `config save-connection`
 - `config show-connection`
+- `system nas-info`
 - `media search`
 - `media rank`
 - `media recommend`

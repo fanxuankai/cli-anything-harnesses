@@ -22,6 +22,7 @@ from cli_anything.ms.core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SO
 from cli_anything.ms.core.media_server import MediaServerManager
 from cli_anything.ms.core.site import SiteManager
 from cli_anything.ms.core.subscribe import SubscribeManager
+from cli_anything.ms.core.system import SystemManager
 from cli_anything.ms.ms_cli import main
 
 
@@ -270,6 +271,56 @@ class TestMSClient:
             json={"hello": "world"},
             timeout=30,
         )
+
+
+class TestSystemManager:
+
+    def test_nas_info_uses_system_nas_info_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[{"instanceName": "bigbaby", "status": "online"}],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = SystemManager(client).nas_info()
+
+        assert result == [{"instanceName": "bigbaby", "status": "online"}]
+        client.request.assert_called_once_with("GET", "/api/v1/system/nas/info")
+
+    def test_nas_info_rejects_unexpected_payload(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"instanceName": "bigbaby"},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        with pytest.raises(ValueError, match="NAS info response data is not a list"):
+            SystemManager(client).nas_info()
+
+    def test_nas_info_surfaces_backend_error(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=500,
+            ok=False,
+            code=50000,
+            message="boom",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        with pytest.raises(ValueError, match="boom"):
+            SystemManager(client).nas_info()
 
 
 class TestMediaManager:
@@ -1643,6 +1694,67 @@ class TestCLI:
         assert payload["configured"] is True
         assert payload["base_url"] == "http://localhost:8899"
         assert payload["api_key"] == "secr...-key"
+
+    def test_system_nas_info_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_nas_info(self):
+            return [
+                {
+                    "pluginCode": "ugreen_service_assistant",
+                    "instanceName": "bigbaby",
+                    "vendor": "ugreen",
+                    "status": "online",
+                }
+            ]
+
+        monkeypatch.setattr(SystemManager, "nas_info", fake_nas_info)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "system",
+                "nas-info",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload == [
+            {
+                "pluginCode": "ugreen_service_assistant",
+                "instanceName": "bigbaby",
+                "vendor": "ugreen",
+                "status": "online",
+            }
+        ]
+
+    def test_system_nas_info_surfaces_backend_error(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_nas_info(self):
+            raise ValueError("boom")
+
+        monkeypatch.setattr(SystemManager, "nas_info", fake_nas_info)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "system",
+                "nas-info",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert json.loads(result.output) == {"error": "boom"}
 
     def test_media_search_command_normalized_json(self, monkeypatch):
         runner = CliRunner()

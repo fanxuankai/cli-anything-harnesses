@@ -25,6 +25,7 @@ from .core.media_server import MediaServerManager
 from .core.site import SITE_SWITCH_TYPE_CHOICES, SiteManager
 from .core.subscribe import MEDIA_TYPE_CHOICES as SUBSCRIBE_MEDIA_TYPE_CHOICES
 from .core.subscribe import SubscribeManager
+from .core.system import SystemManager
 from .utils.output import (
     output_cloud_resource_download,
     output_cloud_resource_rank,
@@ -61,6 +62,7 @@ from .utils.output import (
     output_site_sign_in_history,
     output_subscribe_add,
     output_subscribe_page,
+    output_system_nas_info,
 )
 
 
@@ -81,6 +83,7 @@ class Context:
         self._subscribe_mgr: Optional[SubscribeManager] = None
         self._cloud_resource_mgr: Optional[CloudResourceManager] = None
         self._download_mgr: Optional[DownloadManager] = None
+        self._system_mgr: Optional[SystemManager] = None
 
     def setup(self, url: Optional[str], apikey: Optional[str]) -> None:
         self.conn = ConnectionConfig.resolve(url=url, api_key=apikey)
@@ -91,6 +94,7 @@ class Context:
         self._subscribe_mgr = None
         self._cloud_resource_mgr = None
         self._download_mgr = None
+        self._system_mgr = None
 
     @property
     def media_mgr(self) -> MediaManager:
@@ -139,6 +143,14 @@ class Context:
         if self._download_mgr is None:
             self._download_mgr = DownloadManager(self.client)
         return self._download_mgr
+
+    @property
+    def system_mgr(self) -> SystemManager:
+        if self.client is None:
+            raise ValueError("Client is not initialized")
+        if self._system_mgr is None:
+            self._system_mgr = SystemManager(self.client)
+        return self._system_mgr
 
 
 pass_ctx = click.make_pass_decorator(Context, ensure=True)
@@ -250,6 +262,37 @@ def _enter_repl(ctx: Context) -> None:
             continue
         except Exception as exc:  # pragma: no cover - safety path
             output_error(str(exc))
+
+
+#
+# system 命令组
+#
+
+@main.group()
+@pass_ctx
+def system(ctx: Context) -> None:
+    """系统信息命令。"""
+
+
+@system.command("nas-info")
+@pass_ctx
+def system_nas_info(ctx: Context) -> None:
+    """查看 NAS 系统信息。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.system_mgr.nas_info()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_system_nas_info(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
 
 
 #

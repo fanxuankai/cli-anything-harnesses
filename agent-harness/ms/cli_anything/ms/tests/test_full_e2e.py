@@ -123,6 +123,12 @@ class TestCLIHelp:
         assert result.returncode == 0
         assert "miss-episodes-check" in result.stdout
 
+    def test_system_nas_info_help(self):
+        result = _cli("system", "nas-info", "--help")
+
+        assert result.returncode == 0
+        assert "nas-info" in result.stdout
+
     def test_media_server_list_help(self):
         result = _cli("media-server", "list", "--help")
 
@@ -513,6 +519,23 @@ class TestLiveServer:
         payload = json.loads(result.stdout)
         if result.returncode == 0:
             assert "data" in payload or payload is None
+        else:
+            assert "error" in payload
+
+    @skip_no_server
+    def test_system_nas_info(self):
+        args = ["--json"]
+        if MS_URL:
+            args.extend(["--url", MS_URL])
+        if MS_API_KEY:
+            args.extend(["--apikey", MS_API_KEY])
+        args.extend(["system", "nas-info"])
+        result = _cli(*args)
+
+        assert result.returncode in {0, 1}
+        payload = json.loads(result.stdout)
+        if result.returncode == 0:
+            assert isinstance(payload, list)
         else:
             assert "error" in payload
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "ms NAS 状态"
+  short_description: "用 ms CLI 获取并总结 NAS 当前系统状态与硬件信息"
+  default_prompt: "使用 $ms-nas-state 获取并总结 NAS 当前系统状态。"

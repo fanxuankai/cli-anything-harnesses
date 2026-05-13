@@ -521,6 +521,124 @@ def _print_data(data: Any) -> None:
     console.print(str(data))
 
 
+def _parse_embedded_raw(raw: Any) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        return raw
+    if not isinstance(raw, str) or not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _format_rate(value: Any) -> str:
+    return f"{_format_bytes(value)}/s"
+
+
+def _format_nas_cpu(item: dict[str, Any]) -> str:
+    cpu = item.get("cpu") if isinstance(item.get("cpu"), dict) else {}
+    used = _format_percent(cpu.get("usedPercent"))
+    temp = cpu.get("temperature")
+    temp_text = "-" if temp in (None, "") else f"{temp} C"
+    return f"{used} / {temp_text}"
+
+
+def _format_nas_memory(item: dict[str, Any]) -> str:
+    memory = item.get("memory") if isinstance(item.get("memory"), dict) else {}
+    total = _format_bytes(memory.get("totalBytes"))
+    used = _format_percent(memory.get("usedPercent"))
+    return f"{used} / {total}"
+
+
+def _format_nas_storage(item: dict[str, Any], raw: dict[str, Any]) -> str:
+    storage = item.get("storage") if isinstance(item.get("storage"), dict) else {}
+    total = storage.get("totalBytes") or 0
+    used = storage.get("usedBytes") or 0
+    percent = storage.get("usedPercent")
+
+    if not total:
+        widget = raw.get("storage_widget") if isinstance(raw.get("storage_widget"), dict) else {}
+        volumes = widget.get("storage_list") if isinstance(widget.get("storage_list"), list) else []
+        total = sum(int(volume.get("size") or 0) for volume in volumes if isinstance(volume, dict))
+        used = sum(int(volume.get("used") or 0) for volume in volumes if isinstance(volume, dict))
+        percent = (used / total * 100) if total else 0
+
+    if not total:
+        return "-"
+    return f"{_format_bytes(used)} / {_format_bytes(total)} ({_format_percent(percent)})"
+
+
+def _format_nas_network(item: dict[str, Any]) -> str:
+    network = item.get("network") if isinstance(item.get("network"), dict) else {}
+    ipv4 = str(network.get("ipv4") or "-")
+    up = _format_rate(network.get("uploadBytesPerSec"))
+    down = _format_rate(network.get("downloadBytesPerSec"))
+    return f"{ipv4}\n↑ {up} ↓ {down}"
+
+
+def _format_nas_fans(item: dict[str, Any]) -> str:
+    fans = item.get("fans") if isinstance(item.get("fans"), list) else []
+    values = []
+    for fan in fans:
+        if not isinstance(fan, dict):
+            continue
+        name = str(fan.get("name") or fan.get("role") or "fan")
+        rpm = fan.get("rpm")
+        rpm_text = "-" if rpm in (None, "") else f"{rpm} rpm"
+        values.append(f"{name}: {rpm_text}")
+    return "\n".join(values) if values else "-"
+
+
+def _format_nas_ups(item: dict[str, Any]) -> str:
+    ups = item.get("ups") if isinstance(item.get("ups"), dict) else {}
+    if not ups:
+        return "-"
+    status = str(ups.get("status") or "-")
+    vendor = str(ups.get("vendor") or "")
+    product = str(ups.get("product") or ups.get("model") or "")
+    name = " ".join(part for part in (vendor, product) if part).strip() or "-"
+    return f"{status}\n{name}"
+
+
+def output_system_nas_info(items: list[dict[str, Any]]) -> None:
+    console.print("[bold]NAS Info[/bold]")
+
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Device")
+    table.add_column("Vendor")
+    table.add_column("Status")
+    table.add_column("CPU")
+    table.add_column("Memory")
+    table.add_column("Storage")
+    table.add_column("Network")
+    table.add_column("Fan")
+    table.add_column("UPS")
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        raw = _parse_embedded_raw(item.get("raw"))
+        table.add_row(
+            str(item.get("instanceName") or item.get("model") or "-"),
+            str(item.get("vendor") or "-"),
+            str(item.get("status") or "-"),
+            _format_nas_cpu(item),
+            _format_nas_memory(item),
+            _format_nas_storage(item, raw),
+            _format_nas_network(item),
+            _format_nas_fans(item),
+            _format_nas_ups(item),
+        )
+
+    console.print(table)
+
+
 def output_plugin_call(result: Any) -> None:
     if result is None:
         console.print("[bold green]插件调用成功[/bold green]")

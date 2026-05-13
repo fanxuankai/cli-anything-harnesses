@@ -14,6 +14,7 @@
 - 配置文件保存和读取
 - API key 脱敏展示
 - `MSClient` URL 拼接与 Bearer 鉴权头
+- `SystemManager.nas_info` 的 NAS 信息路径访问
 - `MediaManager.search` 的来源映射和 query 拼装
 - `MediaManager.rank_sources/rank_categories/rank_subjects/rank_items` 的路径访问与参数拼装
 - `MediaManager.recommend_sources/recommend_channels/recommend_options/recommend_items` 的路径访问与参数拼装
@@ -52,6 +53,7 @@ pytest cli_anything/ms/tests/test_core.py -v
 - `cli-anything-ms media recommend channels --help`
 - `cli-anything-ms media recommend options --help`
 - `cli-anything-ms media recommend items --help`
+- `cli-anything-ms system nas-info --help`
 - `cli-anything-ms media-server miss-episodes-check --help`
 - `cli-anything-ms plugin call --help`
 - `cli-anything-ms subscribe page --help`
@@ -97,6 +99,10 @@ cli-anything-ms --json media recommend options --source douban --channel movie
 
 ```bash
 cli-anything-ms --json media recommend items --source douban --channel movie --options '{"sort":"","year":"","tag":"","country":""}' --page 1 --page-size 25
+```
+
+```bash
+cli-anything-ms --json system nas-info
 ```
 
 ```bash

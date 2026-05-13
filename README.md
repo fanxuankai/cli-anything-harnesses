@@ -33,7 +33,7 @@
 | [`ms-site-state`](skills/ms-site-state/SKILL.md)                       | 查看站点状态、站点统计、上传下载量和签到状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-site-state`            |
 | [`ms-site-signin`](skills/ms-site-signin/SKILL.md)                     | 查看或执行站点签到。          | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-site-signin`           |
 | [`ms-download`](skills/ms-download/SKILL.md)                           | 查看下载器、下载中任务和下载历史。    | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-download`              |
-| [`ms-zspace-state`](skills/ms-zspace-state/SKILL.md)                   | 查看极空间系统、硬件、磁盘、网络等状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-zspace-state`          |
+| [`ms-nas-state`](skills/ms-nas-state/SKILL.md)                         | 查看 NAS 系统、硬件、存储、网络、风扇和 UPS 状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-nas-state`             |
 | [`cli-anything-cliproxyapi`](skills/cli-anything-cliproxyapi/SKILL.md) | 管理 CLIProxyAPI 代理服务。 | `npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyapi` |
 
 ## Quick Start
