@@ -1,13 +1,13 @@
 ---
 name: ms-media-server
-description: 查看和同步 ms 媒体服务器时使用，例如“媒体服务器状态”“媒体服务同步信息”“媒体库列表”“同步历史”“正在播放”“最近添加”“继续观看”“立即同步媒体库”。
+description: 查看和同步 ms 媒体服务器时使用，例如“媒体服务器状态”“媒体服务同步信息”“媒体库列表”“同步历史”“正在播放”“最近添加”“继续观看”“立即同步媒体库”“库里有没有 XX”。
 ---
 
 # ms Media Server
 
 ## 概述
 
-通过本地 `cli-anything-ms` CLI 查看 ms 媒体服务器、同步统计、媒体库和媒体项目。
+通过本地 `cli-anything-ms` CLI 查看 ms 媒体服务器、同步统计、媒体库和媒体项目，并支持在媒体服务器库内实时检索。
 默认只读；只有用户明确要求“同步”“立即同步”“刷新媒体库”时，才发起媒体库同步任务。
 
 ## 安装
@@ -66,6 +66,31 @@ cli-anything-ms --json media-server list
   cli-anything-ms --json media-server latest --id <id> --num 12
   cli-anything-ms --json media-server resume --id <id> --num 12
   ```
+
+## 库内检索
+
+用户问“库里有没有 XX”“我库里的电影/剧”“帮我在 Emby 里搜 XX”时执行：
+
+```bash
+cli-anything-ms --json media-server search --id <id> --keyword "<keyword>"
+```
+
+按需要追加：
+
+```bash
+--type movie          # 只搜电影
+--type tv             # 只搜电视剧
+--library-id <lib>    # 限定某个媒体库
+--limit 20            # 最多返回条数
+```
+
+用户没指定服务器时先执行 `media-server list`；只有一台或用户点名的直接用，多台且不确定时让用户选。
+
+展示规则：
+
+- 用自然中文说明片名、年份、类型、评分和所属媒体库。
+- 用户问“有没有”时，先直接回答有没有、再列匹配条目；没有匹配就明说库里没有。
+- 最近添加/继续观看/正在播放的条目带播放页链接，用户想看某片时直接把链接给出来。
 
 ## 立即同步
 

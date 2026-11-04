@@ -66,6 +66,7 @@ from .utils.output import (
     output_media_server_libraries,
     output_media_server_list,
     output_media_server_media_items,
+    output_media_server_search,
     output_media_server_statistics,
     output_media_server_sync_items,
     output_media_server_sync_run,
@@ -1041,6 +1042,50 @@ def media_server_sync_run(ctx: Context, server_id: int) -> None:
             output_json(result)
         else:
             output_media_server_sync_run(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_server.command("search")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
+@click.option("--keyword", help="Search keyword on item title")
+@click.option(
+    "--type",
+    "media_type",
+    type=click.Choice(MEDIA_SERVER_MEDIA_TYPE_CHOICES, case_sensitive=False),
+    help="Media type",
+)
+@click.option("--library-id", help="Library ID filter")
+@click.option("--limit", type=click.IntRange(min=1), default=20, show_default=True, help="Max items")
+@pass_ctx
+def media_server_search(
+    ctx: Context,
+    server_id: int,
+    keyword: Optional[str],
+    media_type: Optional[str],
+    library_id: Optional[str],
+    limit: int,
+) -> None:
+    """在媒体服务器库内实时检索条目。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_server_mgr.browse_items(
+            server_id,
+            keyword=keyword,
+            media_type=media_type.lower() if media_type else None,
+            library_id=library_id,
+            limit=limit,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_server_search(result)
     except SystemExit:
         raise
     except Exception as exc:

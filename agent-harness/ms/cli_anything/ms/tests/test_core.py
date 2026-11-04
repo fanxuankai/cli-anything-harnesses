@@ -932,6 +932,52 @@ class TestMediaServerManager:
         assert result["server_id"] == 1
         client.request.assert_called_once_with("GET", "/api/v1/mediaServerSync/run/1")
 
+    def test_browse_items_uses_browse_endpoint_and_normalizes(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={
+                "total": 1,
+                "pageNum": 1,
+                "pageSize": 20,
+                "list": [
+                    {
+                        "itemId": "emby-99",
+                        "title": "庆余年",
+                        "itemType": "Series",
+                        "year": 2019,
+                        "tmdbId": 95842,
+                        "libraryId": "lib-1",
+                        "image": "https://example.test/img.jpg",
+                        "overview": "剧情",
+                        "rating": 8.6,
+                        "genres": ["剧情"],
+                    }
+                ],
+            },
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = MediaServerManager(client).browse_items(1, keyword="庆余", media_type="tv", limit=20)
+
+        assert result["total"] == 1
+        item = result["list"][0]
+        assert item["item_id"] == "emby-99"
+        assert item["title"] == "庆余年"
+        assert item["rating"] == 8.6
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/mediaServer/browse/items/1",
+            params={"limit": "20", "searchTerm": "庆余", "mediaType": "tv"},
+        )
+
+        with pytest.raises(ValueError, match="--type must be movie or tv"):
+            MediaServerManager(MagicMock()).browse_items(1, media_type="anime")
+
     def test_media_server_methods_reject_unexpected_payloads(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(

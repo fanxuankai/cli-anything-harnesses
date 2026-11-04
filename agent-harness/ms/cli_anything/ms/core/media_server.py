@@ -145,6 +145,65 @@ class MediaServerManager:
             "message": response.message,
         }
 
+    def browse_items(
+        self,
+        server_id: int,
+        *,
+        keyword: Optional[str] = None,
+        media_type: Optional[str] = None,
+        library_id: Optional[str] = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """按关键词实时检索媒体服务器库内条目。"""
+        media_type = (media_type or "").strip().lower()
+        if media_type and media_type not in MEDIA_TYPE_CHOICES:
+            raise ValueError("--type must be movie or tv")
+        if limit < 1:
+            raise ValueError("--limit must be at least 1")
+
+        params: dict[str, str] = {"limit": str(limit)}
+        keyword = (keyword or "").strip()
+        if keyword:
+            params["searchTerm"] = keyword
+        if media_type:
+            params["mediaType"] = media_type
+        library_id = (library_id or "").strip()
+        if library_id:
+            params["libraryId"] = library_id
+
+        response = self.client.request("GET", f"/api/v1/mediaServer/browse/items/{server_id}", params=params)
+        if not response.ok:
+            message = response.message or f"Media server browse items failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if not isinstance(response.data, dict):
+            raise ValueError("Media server browse items returned an unexpected response payload")
+        return self._normalize_browse_page(response.data)
+
+    def _normalize_browse_page(self, data: dict[str, Any]) -> dict[str, Any]:
+        items = data.get("list") or []
+        if not isinstance(items, list):
+            items = []
+        return {
+            "total": self._to_int(data.get("total")) or 0,
+            "list": [self._normalize_browse_item(item) for item in items],
+        }
+
+    def _normalize_browse_item(self, item: Any) -> dict[str, Any]:
+        if not isinstance(item, dict):
+            item = {}
+        return {
+            "item_id": str(item.get("itemId", "") or ""),
+            "title": str(item.get("title", "") or ""),
+            "media_type": str(item.get("itemType", "") or ""),
+            "year": self._to_int(item.get("year")),
+            "tmdb_id": self._to_int(item.get("tmdbId")),
+            "library_id": str(item.get("libraryId", "") or ""),
+            "image": str(item.get("image", "") or ""),
+            "overview": str(item.get("overview", "") or ""),
+            "rating": self._to_float(item.get("rating")),
+            "genres": item.get("genres") if isinstance(item.get("genres"), list) else [],
+        }
+
     def _media_items(
         self,
         server_id: int,

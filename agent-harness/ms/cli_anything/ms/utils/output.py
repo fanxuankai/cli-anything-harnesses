@@ -1119,6 +1119,34 @@ def output_media_server_media_items(result: dict[str, Any], title: str) -> None:
     console.print(table)
 
 
+def output_media_server_search(result: dict[str, Any]) -> None:
+    console.print("[bold]Media Server Search[/bold]")
+    items = result.get("list") or []
+    console.print(f"Total: {result.get('total', len(items))}")
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Title")
+    table.add_column("Type")
+    table.add_column("Year")
+    table.add_column("Rating")
+    table.add_column("TMDB")
+    table.add_column("Poster")
+    for item in items:
+        rating = item.get("rating")
+        table.add_row(
+            _text(item.get("title")),
+            _text(item.get("media_type")),
+            _text(item.get("year")),
+            "-" if rating in (None, "") else f"{float(rating):.1f}",
+            _text(item.get("tmdb_id")),
+            _text(item.get("image")),
+        )
+    console.print(table)
+
+
 def output_media_server_sync_run(result: dict[str, Any]) -> None:
     console.print("[bold green]媒体服务器同步任务已发起[/bold green]")
     console.print(f"Server ID: {result.get('server_id', '')}")
