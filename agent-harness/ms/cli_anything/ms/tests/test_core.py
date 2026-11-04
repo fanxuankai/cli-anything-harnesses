@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,6 +17,7 @@ HARNESS_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 sys.path.insert(0, HARNESS_ROOT)
 
 from cli_anything.ms.core.client import ApiResponse, ConnectionConfig, MSClient
+from cli_anything.ms.core.calendar import CalendarManager
 from cli_anything.ms.core.cloud_resource import CloudResourceManager
 from cli_anything.ms.core.download import DownloadManager
 from cli_anything.ms.core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
@@ -876,6 +878,105 @@ class TestMediaServerManager:
         )
         with pytest.raises(ValueError, match="Media server sync items returned an unexpected response payload"):
             MediaServerManager(client).sync_items(1)
+
+class TestCalendarManager:
+
+    def test_list_uses_subscribe_calendar_endpoint_and_groups_by_day(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[
+                {
+                    "subscribeId": 5,
+                    "tmdbId": 95842,
+                    "name": "庆余年",
+                    "type": "tv",
+                    "year": 2019,
+                    "season": 1,
+                    "episode": 46,
+                    "airTime": 1777132800,
+                    "poster": "https://example.test/p.jpg",
+                    "overview": "剧情简介",
+                }
+            ],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = CalendarManager(client).list(days=7, from_date="2026-11-05")
+
+        assert result["start"] == "2026-11-05"
+        assert result["days"] == 7
+        assert result["total"] == 1
+        day = result["days_list"][0]
+        assert day["date"] == datetime.fromtimestamp(1777132800).strftime("%Y-%m-%d")
+        item = day["items"][0]
+        assert item["name"] == "庆余年"
+        assert item["subscribe_id"] == 5
+        assert item["air_time_text"]
+        assert item["air_date"] == day["date"]
+        call = client.request.call_args
+        assert call.args == ("GET", "/api/v1/subscribeCalendar/list")
+        assert set(call.kwargs["params"].keys()) == {"startTime", "endTime"}
+
+    def test_list_passes_subscribe_id_filter(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        CalendarManager(client).list(subscribe_id=5, days=3)
+
+        params = client.request.call_args.kwargs["params"]
+        assert params["subscribeId"] == "5"
+
+    def test_list_rejects_bad_from_date(self):
+        with pytest.raises(ValueError, match="--from must be YYYY-MM-DD"):
+            CalendarManager(MagicMock()).list(from_date="11/05")
+
+    def test_ical_urls_uses_ical_urls_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"items": [{"title": "追剧日历", "icalUrl": "https://example.test/ical?apiKey=k"}], "emptyReason": ""},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = CalendarManager(client).ical_urls()
+
+        assert result["items"][0]["ical_url"] == "https://example.test/ical?apiKey=k"
+        client.request.assert_called_once_with("GET", "/api/v1/subscribeCalendar/icalUrls")
+
+    def test_ical_urls_surfaces_empty_reason(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"items": [], "emptyReason": "missingApiKey"},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = CalendarManager(client).ical_urls()
+
+        assert result["items"] == []
+        assert result["empty_reason"] == "missingApiKey"
+
 
 class TestMediaHealthManager:
 

@@ -13,6 +13,7 @@ from typing import Optional
 import click
 
 from . import __version__
+from .core.calendar import CalendarManager
 from .core.client import ConnectionConfig, MSClient
 from .core.cloud_resource import (
     CLOUD_RESOURCE_ORDER_BY_CHOICES,
@@ -36,6 +37,8 @@ from .utils.output import (
     output_cloud_resource_download,
     output_cloud_resource_rank,
     output_cloud_resource_search,
+    output_calendar_ical_urls,
+    output_calendar_list,
     output_connection,
     output_download_history,
     output_download_operation,
@@ -91,6 +94,7 @@ class Context:
         self._media_mgr: Optional[MediaManager] = None
         self._media_server_mgr: Optional[MediaServerManager] = None
         self._media_health_mgr: Optional[MediaHealthManager] = None
+        self._calendar_mgr: Optional[CalendarManager] = None
         self._site_mgr: Optional[SiteManager] = None
         self._subscribe_mgr: Optional[SubscribeManager] = None
         self._cloud_resource_mgr: Optional[CloudResourceManager] = None
@@ -103,6 +107,7 @@ class Context:
         self._media_mgr = None
         self._media_server_mgr = None
         self._media_health_mgr = None
+        self._calendar_mgr = None
         self._site_mgr = None
         self._subscribe_mgr = None
         self._cloud_resource_mgr = None
@@ -132,6 +137,14 @@ class Context:
         if self._media_health_mgr is None:
             self._media_health_mgr = MediaHealthManager(self.client)
         return self._media_health_mgr
+
+    @property
+    def calendar_mgr(self) -> CalendarManager:
+        if self.client is None:
+            raise ValueError("Client is not initialized")
+        if self._calendar_mgr is None:
+            self._calendar_mgr = CalendarManager(self.client)
+        return self._calendar_mgr
 
     @property
     def site_mgr(self) -> SiteManager:
@@ -1108,6 +1121,62 @@ def media_health_restore(ctx: Context, issue_key: str) -> None:
             output_json(result)
         else:
             output_media_health_operation(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+#
+# calendar 命令组
+#
+
+
+@main.group()
+@pass_ctx
+def calendar(ctx: Context) -> None:
+    """追剧日历命令。"""
+
+
+@calendar.command("list")
+@click.option("--subscribe-id", type=click.IntRange(min=1), help="Subscribe ID filter")
+@click.option("--days", type=click.IntRange(min=1), default=7, show_default=True, help="Day range")
+@click.option("--from", "from_date", help="Start date YYYY-MM-DD. Empty means today")
+@pass_ctx
+def calendar_list(ctx: Context, subscribe_id: Optional[int], days: int, from_date: Optional[str]) -> None:
+    """查看订阅日历（按天分组）。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.calendar_mgr.list(subscribe_id=subscribe_id, days=days, from_date=from_date)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_calendar_list(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@calendar.command("ical-urls")
+@pass_ctx
+def calendar_ical_urls(ctx: Context) -> None:
+    """查看追剧日历的 iCal 订阅地址。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.calendar_mgr.ical_urls()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_calendar_ical_urls(result)
     except SystemExit:
         raise
     except Exception as exc:

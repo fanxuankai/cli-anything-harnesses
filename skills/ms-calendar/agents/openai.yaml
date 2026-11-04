@@ -1,0 +1,4 @@
+interface:
+  display_name: "ms 追剧日历"
+  short_description: "用 ms CLI 查看订阅日历的按天更新安排，并获取加到手机日历的 iCal 订阅地址"
+  default_prompt: "使用 $ms-calendar 查看未来几天的剧集更新安排；如果我要把日历加到手机日历 App，给我 iCal 订阅地址。"

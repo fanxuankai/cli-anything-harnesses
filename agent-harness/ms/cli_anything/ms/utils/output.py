@@ -701,6 +701,52 @@ def output_plugin_call(result: Any) -> None:
         console.print("[bold green]插件调用成功[/bold green]")
 
 
+def output_calendar_list(result: dict[str, Any]) -> None:
+    console.print("[bold]Subscribe Calendar[/bold]")
+    console.print(f"[cyan]Start[/cyan]: {result.get('start', '')} / [cyan]Days[/cyan]: {result.get('days', '')} / [cyan]Total[/cyan]: {result.get('total', 0)}")
+
+    days_list = result.get("days_list") or []
+    if not days_list:
+        console.print("[dim](空)[/dim]")
+        return
+
+    for day in days_list:
+        console.print(f"[cyan]{day.get('date', '')}[/cyan]")
+        for item in day.get("items") or []:
+            season = item.get("season") or 0
+            episode = item.get("episode") or 0
+            season_episode = f"S{season:02d}E{episode:02d}" if season or episode else ""
+            title = str(item.get("name", "") or "")
+            year = item.get("year")
+            header = title if year in (None, "") else f"{title} ({year})"
+            line = f"  {header}"
+            if season_episode:
+                line += f" {season_episode}"
+            if item.get("air_time_text"):
+                line += f" · {item.get('air_time_text')}"
+            console.print(line)
+
+
+def output_calendar_ical_urls(result: dict[str, Any]) -> None:
+    console.print("[bold]Calendar iCal URLs[/bold]")
+    items = result.get("items") or []
+    if not items:
+        reason = str(result.get("empty_reason", "") or "")
+        reason_text = {
+            "missingDomain": "系统尚未配置外部访问域名，请先在系统设置中填写",
+            "missingApiKey": "尚未创建 API Key，请先在安全中心创建",
+        }.get(reason, reason or "(空)")
+        console.print(f"[dim]{reason_text}[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Title")
+    table.add_column("iCal URL")
+    for item in items:
+        table.add_row(_text(item.get("title")), _text(item.get("ical_url")))
+    console.print(table)
+
+
 def output_media_health_page(result: dict[str, Any]) -> None:
     console.print("[bold]Media Health[/bold]")
     summary = result.get("summary") if isinstance(result.get("summary"), dict) else {}
