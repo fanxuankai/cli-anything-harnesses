@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any, Optional
 
 from .client import MSClient
@@ -16,7 +17,20 @@ LINK_TYPE_LABELS = {
     200: "云分享",
     300: "云下载",
 }
-DOWNLOADABLE_LINK_TYPES = {200, 300}
+# 云资源可下载链路：200 云分享走转存（123_fast_link），300 云下载走离线下载（ed2k）
+CLOUD_SHARE_LINK_TYPE = 200
+CLOUD_OFFLINE_LINK_TYPE = 300
+CLOUD_DOWNLOADABLE_LINK_TYPES = (CLOUD_SHARE_LINK_TYPE, CLOUD_OFFLINE_LINK_TYPE)
+MATERIAL_TYPE_BY_LINK_TYPE = {
+    CLOUD_SHARE_LINK_TYPE: "123_fast_link",
+    CLOUD_OFFLINE_LINK_TYPE: "ed2k",
+}
+ACTION_BY_LINK_TYPE = {
+    CLOUD_SHARE_LINK_TYPE: "share_receive",
+    CLOUD_OFFLINE_LINK_TYPE: "offline_download",
+}
+MATERIAL_TYPE_CHOICES = ("ed2k", "123_fast_link")
+ACTION_CHOICES = ("offline_download", "share_receive", "copy_link")
 
 
 class CloudResourceManager:
@@ -78,18 +92,19 @@ class CloudResourceManager:
         return self._normalize_page(response.data)
 
     def submit_download(self, request: dict[str, Any], *, dir_path: Optional[str] = None) -> dict[str, Any]:
-        payload = self._build_download_payload(request, dir_path=dir_path)
-        response = self.client.request("POST", "/api/v1/cloudStorageFs/upload", json_body=payload)
+        item = self._build_use_item(request, dir_path=dir_path)
+        response = self.client.request("POST", "/api/v1/cloudStorageResource/use", json_body={"items": [item]})
         if not response.ok:
             message = response.message or f"Cloud resource download failed with HTTP {response.status_code}"
             raise ValueError(message)
+        if response.data is not None and not isinstance(response.data, list):
+            raise ValueError("Cloud resource download returned an unexpected response payload")
 
+        results = response.data if isinstance(response.data, list) else []
+        normalized = [self._normalize_use_result(result) for result in results]
         return {
             "status": "submitted",
-            "type": payload["type"],
-            "dir": payload.get("dir", ""),
-            "count": len(payload["contents"]),
-            "response": response.data,
+            "items": normalized,
             "message": response.message,
         }
 
@@ -163,10 +178,11 @@ class CloudResourceManager:
 
         link_type = self._to_int(item.get("linkType"))
         cs_hash_id = self._to_int(item.get("csHashId"))
-        enclosure = str(item.get("enclosure", "") or "")
         creator_name = str(item.get("userName", "") or "")
         creator_id = self._to_int(item.get("userId"))
         metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        cloud_metadata = metadata.get("cloudResource") if isinstance(metadata.get("cloudResource"), dict) else {}
+        capabilities = [str(cap) for cap in cloud_metadata.get("capabilities") or [] if str(cap).strip()]
         tmdb_media = item.get("tmdbMedia") if isinstance(item.get("tmdbMedia"), dict) else {}
 
         normalized = {
@@ -189,7 +205,6 @@ class CloudResourceManager:
             "link": {
                 "type": link_type,
                 "type_name": LINK_TYPE_LABELS.get(link_type, "" if link_type is None else str(link_type)),
-                "url": enclosure,
             },
             "creator": {
                 "id": creator_id,
@@ -202,62 +217,67 @@ class CloudResourceManager:
             },
             "cs_hash_id": cs_hash_id,
             "archived": bool(item.get("archived")),
-            "downloadable": bool(enclosure and link_type in DOWNLOADABLE_LINK_TYPES),
+            "downloadable": False,
             "download_request": None,
         }
-        normalized["download_request"] = self._build_download_request(normalized)
+        if link_type in CLOUD_DOWNLOADABLE_LINK_TYPES:
+            normalized["download_request"] = self._build_cloud_download_request(
+                link_type=link_type, cs_hash_id=cs_hash_id, capabilities=capabilities
+            )
+        normalized["downloadable"] = normalized["download_request"] is not None
         return normalized
 
-    def _build_download_request(self, item: dict[str, Any]) -> Optional[dict[str, Any]]:
-        link = item.get("link") if isinstance(item.get("link"), dict) else {}
-        link_type = link.get("type")
-        url = str(link.get("url", "") or "")
-        if not url or link_type not in DOWNLOADABLE_LINK_TYPES:
+    def _build_cloud_download_request(
+        self, *, link_type: int, cs_hash_id: Optional[int], capabilities: list[str]
+    ) -> Optional[dict[str, Any]]:
+        if cs_hash_id is None:
             return None
-
-        request: dict[str, Any] = {
-            "type": link_type,
-            "contents": [url],
+        material_type = MATERIAL_TYPE_BY_LINK_TYPE[link_type]
+        # 与前端一致：仅当资源明确声明能力且不含目标方式时拦下，历史数据缺 capabilities 时放行
+        if capabilities and material_type not in capabilities:
+            return None
+        return {
+            "csHashId": cs_hash_id,
+            "materialType": material_type,
+            "action": ACTION_BY_LINK_TYPE[link_type],
         }
-        cs_hash_id = item.get("cs_hash_id")
-        if cs_hash_id is not None:
-            request["csHashId"] = cs_hash_id
-        creator = item.get("creator") if isinstance(item.get("creator"), dict) else {}
-        creator_name = str(creator.get("name", "") or "")
-        if creator_name:
-            request["csCreator"] = creator_name
-        return request
 
-    def _build_download_payload(self, request: dict[str, Any], *, dir_path: Optional[str]) -> dict[str, Any]:
+    def _build_use_item(self, request: dict[str, Any], *, dir_path: Optional[str]) -> dict[str, Any]:
         if not isinstance(request, dict):
             raise ValueError("--request must be a JSON object")
 
-        upload_type = self._to_int(request.get("type"))
-        if upload_type not in DOWNLOADABLE_LINK_TYPES:
-            raise ValueError("--request.type must be 200 or 300")
+        cs_hash_id = self._to_int(request.get("csHashId"))
+        if cs_hash_id is None:
+            raise ValueError("--request.csHashId is required")
+        material_type = str(request.get("materialType", "") or "").strip()
+        if material_type not in MATERIAL_TYPE_CHOICES:
+            raise ValueError("--request.materialType must be ed2k or 123_fast_link")
+        action = str(request.get("action", "") or "").strip()
+        if action not in ACTION_CHOICES:
+            raise ValueError("--request.action must be offline_download, share_receive, or copy_link")
 
-        contents = request.get("contents")
-        if not isinstance(contents, list) or not contents:
-            raise ValueError("--request.contents must be a non-empty array")
-
-        clean_contents = [str(item).strip() for item in contents if str(item).strip()]
-        if not clean_contents:
-            raise ValueError("--request.contents must contain at least one non-empty item")
-
-        payload: dict[str, Any] = {
-            "type": upload_type,
-            "contents": clean_contents,
+        item: dict[str, Any] = {
+            "csHashId": cs_hash_id,
+            "operationId": str(uuid.uuid4()),
+            "action": action,
+            "materialType": material_type,
         }
         if dir_path:
-            payload["dir"] = dir_path
+            item["dstDir"] = dir_path
+        return item
 
-        cs_hash_id = self._to_int(request.get("csHashId"))
-        if cs_hash_id is not None:
-            payload["csHashId"] = cs_hash_id
-        cs_creator = str(request.get("csCreator", "") or "").strip()
-        if cs_creator:
-            payload["csCreator"] = cs_creator
-        return payload
+    def _normalize_use_result(self, result: Any) -> dict[str, Any]:
+        if not isinstance(result, dict):
+            result = {}
+        return {
+            "cs_hash_id": self._to_int(result.get("csHashId")),
+            "operation_id": str(result.get("operationId", "") or ""),
+            "status": str(result.get("status", "") or ""),
+            "task_id": str(result.get("taskId", "") or ""),
+            "task_type": str(result.get("taskType", "") or ""),
+            "message": str(result.get("message", "") or ""),
+            "link": str(result.get("link", "") or ""),
+        }
 
     def _normalize_rank_item(self, item: Any, *, rank: int, stat_type: str) -> dict[str, Any]:
         if not isinstance(item, dict):

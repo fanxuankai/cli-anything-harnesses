@@ -384,14 +384,22 @@ def output_cloud_resource_search(result: dict[str, Any]) -> None:
 
 
 def output_cloud_resource_download(result: dict[str, Any]) -> None:
-    console.print("[bold green]Cloud Resource Download Submitted[/bold green]")
-    console.print(f"[cyan]type[/cyan]: {result.get('type', '')}")
-    console.print(f"[cyan]count[/cyan]: {result.get('count', '')}")
-    dir_path = result.get("dir")
-    console.print(f"[cyan]dir[/cyan]: {dir_path or '(backend default)'}")
-    message = result.get("message")
-    if message:
-        console.print(f"[cyan]message[/cyan]: {message}")
+    console.print("[bold green]云资源任务已提交[/bold green]")
+    items = result.get("items") or []
+    console.print(f"Count: {len(items)}")
+    for item in items:
+        status = str(item.get("status", "") or "")
+        message = str(item.get("message", "") or "")
+        line = f"- [{status or 'unknown'}] csHash {item.get('cs_hash_id', '')}"
+        if item.get("task_id"):
+            line += f" / Task {item.get('task_id')}"
+        if message:
+            line += f" / {message}"
+        console.print(line)
+    if result.get("message"):
+        console.print(f"Message: {result.get('message')}")
+    if items:
+        console.print("[dim]任务已提交，进度请用 cloud-resource tasks 查询[/dim]")
 
 
 def output_cloud_resource_rank(result: dict[str, Any]) -> None:

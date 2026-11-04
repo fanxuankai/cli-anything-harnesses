@@ -95,7 +95,7 @@ def _raw_cloud_resource_item(**overrides):
         "driverName": "115 Open",
         "linkDriverName": "",
         "linkType": 300,
-        "enclosure": "ed2k://|file|test.mp4|2251076541|ABC|/",
+        "enclosure": "",
         "csHashId": 1246925,
         "userName": "Lucifer",
         "userId": 931,
@@ -104,6 +104,7 @@ def _raw_cloud_resource_item(**overrides):
             "resourcePix": "1080p",
             "videoEncode": "AVC",
             "seasonEpisode": "S01 E46",
+            "cloudResource": {"capabilities": ["ed2k"]},
         },
         "tmdbMedia": {
             "id": 95842,
@@ -1453,15 +1454,13 @@ class TestCloudResourceManager:
         assert item["link"] == {
             "type": 300,
             "type_name": "云下载",
-            "url": "ed2k://|file|test.mp4|2251076541|ABC|/",
         }
         assert item["cs_hash_id"] == 1246925
         assert item["downloadable"] is True
         assert item["download_request"] == {
-            "type": 300,
-            "contents": ["ed2k://|file|test.mp4|2251076541|ABC|/"],
             "csHashId": 1246925,
-            "csCreator": "Lucifer",
+            "materialType": "ed2k",
+            "action": "offline_download",
         }
         client.request.assert_called_once_with(
             "POST",
@@ -1492,14 +1491,14 @@ class TestCloudResourceManager:
         with pytest.raises(ValueError, match="requires --type"):
             manager.search(tmdb_id=95842, page=1, page_size=25)
 
-    def test_share_link_download_request_uses_share_receive_type(self):
+    def test_share_link_download_request_uses_share_receive_material(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(
             status_code=200,
             ok=True,
             code=20000,
             message="SUCCESS",
-            data={"total": 1, "pageNum": 1, "pageSize": 25, "list": [_raw_cloud_resource_item(linkType=200, enclosure='{"path":"test.mp4"}')]},
+            data={"total": 1, "pageNum": 1, "pageSize": 25, "list": [_raw_cloud_resource_item(linkType=200, metadata={"resourcePix": "1080p", "cloudResource": {"capabilities": ["123_fast_link"]}})]},
             raw_body={},
             is_standard_response=True,
         )
@@ -1507,74 +1506,102 @@ class TestCloudResourceManager:
         result = CloudResourceManager(client).search(keyword="庆余年")
 
         assert result["list"][0]["link"]["type_name"] == "云分享"
-        assert result["list"][0]["download_request"]["type"] == 200
-        assert result["list"][0]["download_request"]["contents"] == ['{"path":"test.mp4"}']
+        assert result["list"][0]["download_request"] == {
+            "csHashId": 1246925,
+            "materialType": "123_fast_link",
+            "action": "share_receive",
+        }
 
-    def test_submit_download_posts_upload_payload_for_offline_download(self):
+    def test_cloud_resource_without_required_capability_is_not_downloadable(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(
             status_code=200,
             ok=True,
             code=20000,
             message="SUCCESS",
-            data=True,
+            data={"total": 1, "pageNum": 1, "pageSize": 25, "list": [_raw_cloud_resource_item(metadata={"resourcePix": "1080p", "cloudResource": {"capabilities": ["123_fast_link"]}})]},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = CloudResourceManager(client).search(keyword="庆余年")
+
+        assert result["list"][0]["downloadable"] is False
+        assert result["list"][0]["download_request"] is None
+
+    def test_site_torrent_item_is_not_downloadable_via_cloud_channel(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"total": 1, "pageNum": 1, "pageSize": 25, "list": [_raw_cloud_resource_item(linkType=100, csHashId=None)]},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = CloudResourceManager(client).search(keyword="庆余年")
+
+        assert result["list"][0]["downloadable"] is False
+        assert result["list"][0]["download_request"] is None
+
+    def test_submit_download_posts_use_payload_for_offline_download(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[{"csHashId": 1246925, "operationId": "op-1", "status": "ok", "taskId": "task-9", "taskType": "offline_download"}],
             raw_body={},
             is_standard_response=True,
         )
         request = {
-            "type": 300,
-            "contents": ["ed2k://|file|test.mp4|1|ABC|/"],
             "csHashId": 1246925,
-            "csCreator": "Lucifer",
+            "materialType": "ed2k",
+            "action": "offline_download",
         }
 
         result = CloudResourceManager(client).submit_download(request, dir_path="/downloads")
 
         assert result["status"] == "submitted"
-        assert result["type"] == 300
-        assert result["count"] == 1
-        client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/cloudStorageFs/upload",
-            json_body={
-                "type": 300,
-                "contents": ["ed2k://|file|test.mp4|1|ABC|/"],
-                "dir": "/downloads",
-                "csHashId": 1246925,
-                "csCreator": "Lucifer",
-            },
-        )
-
-    def test_submit_download_posts_upload_payload_for_share_receive(self):
-        client = MagicMock()
-        client.request.return_value = ApiResponse(
-            status_code=200,
-            ok=True,
-            code=20000,
-            message="SUCCESS",
-            data=True,
-            raw_body={},
-            is_standard_response=True,
-        )
-
-        CloudResourceManager(client).submit_download(
-            {"type": 200, "contents": ['{"path":"test.mp4"}']},
-            dir_path=None,
-        )
-
-        client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/cloudStorageFs/upload",
-            json_body={"type": 200, "contents": ['{"path":"test.mp4"}']},
-        )
+        assert result["items"][0]["task_id"] == "task-9"
+        call = client.request.call_args
+        assert call.args == ("POST", "/api/v1/cloudStorageResource/use")
+        payload_item = call.kwargs["json_body"]["items"][0]
+        assert payload_item["csHashId"] == 1246925
+        assert payload_item["materialType"] == "ed2k"
+        assert payload_item["action"] == "offline_download"
+        assert payload_item["dstDir"] == "/downloads"
+        assert payload_item["operationId"]
 
     def test_submit_download_rejects_invalid_request(self):
         manager = CloudResourceManager(MagicMock())
 
-        with pytest.raises(ValueError, match="must be 200 or 300"):
-            manager.submit_download({"type": 100, "contents": ["x"]}, dir_path=None)
-        with pytest.raises(ValueError, match="non-empty array"):
-            manager.submit_download({"type": 300, "contents": []}, dir_path=None)
+        with pytest.raises(ValueError, match="csHashId is required"):
+            manager.submit_download({"materialType": "ed2k", "action": "offline_download"}, dir_path=None)
+        with pytest.raises(ValueError, match="materialType must be"):
+            manager.submit_download({"csHashId": 1, "materialType": "bogus", "action": "offline_download"}, dir_path=None)
+        with pytest.raises(ValueError, match="action must be"):
+            manager.submit_download({"csHashId": 1, "materialType": "ed2k", "action": "bogus"}, dir_path=None)
+        with pytest.raises(ValueError, match="must be a JSON object"):
+            manager.submit_download("not-a-dict", dir_path=None)
+
+    def test_submit_download_surfaces_backend_error(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=False,
+            code=50000,
+            message="仙石不足",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        with pytest.raises(ValueError, match="仙石不足"):
+            CloudResourceManager(client).submit_download({"csHashId": 1, "materialType": "ed2k", "action": "offline_download"}, dir_path=None)
 
     def test_rank_fetches_list_and_mine(self):
         client = MagicMock()
