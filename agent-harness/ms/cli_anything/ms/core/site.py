@@ -102,6 +102,22 @@ class SiteManager:
         items = [self._normalize_site_data(item) for item in response.data]
         return {"total": len(items), "items": items}
 
+    def data_sync(self, *, site_ids: Optional[list[int]] = None) -> dict[str, Any]:
+        body: dict[str, Any] = {}
+        if site_ids:
+            body["ids"] = site_ids
+
+        response = self.client.request("POST", "/api/v1/siteData/sync", json_body=body)
+        if not response.ok:
+            message = response.message or f"Site data sync failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        return {
+            "status": "submitted",
+            "site_ids": site_ids or [],
+            "all_enabled": not bool(site_ids),
+            "message": response.message,
+        }
+
     def sign_in_history(
         self,
         *,

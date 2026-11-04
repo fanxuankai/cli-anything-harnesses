@@ -61,10 +61,16 @@ cli-anything-ms --json site data latest --site-name "<site name>"
 - 重点说明站点名、是否登录、是否已签到、分享率、上传量、下载量、魔力值、做种数量、做种体积、统计日期。
 - 如果有未登录站点，要明确点名。
 - 如果用户只问上传、下载、做种或魔力值，就只突出对应字段。
+- 用户觉得数据旧并明确要求“刷新站点数据”“同步站点数据”时执行：
+
+  ```bash
+  cli-anything-ms --json site data sync
+  ```
+
+  用户指定站点时追加 `--id <site_id>`。执行后只说明刷新任务已发起，建议稍后重新查询统计；不要自己反复刷新。
 
 ## 注意事项
 
-- 不调用 `siteData/sync`。
 - 不调用 `siteSignIn/go`。
 - 不修改站点开关、Cookie、配置或排序。
 - 不直接调用后端接口，统一通过 `cli-anything-ms`。

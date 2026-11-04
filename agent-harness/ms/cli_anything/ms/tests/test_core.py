@@ -1459,6 +1459,26 @@ class TestSiteManager:
         with pytest.raises(ValueError, match="--result must be all, success, or failure"):
             SiteManager(MagicMock()).sign_in_history(result="bogus")
 
+    def test_site_data_sync_submits_refresh(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = SiteManager(client)
+        result = manager.data_sync(site_ids=[1, 2])
+        assert result["status"] == "submitted"
+        client.request.assert_called_once_with("POST", "/api/v1/siteData/sync", json_body={"ids": [1, 2]})
+
+        manager.data_sync()
+        client.request.assert_called_with("POST", "/api/v1/siteData/sync", json_body={})
+
     def test_site_methods_reject_unexpected_payloads(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(

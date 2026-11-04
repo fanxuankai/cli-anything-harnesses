@@ -1243,6 +1243,18 @@ def output_site_data_latest(result: dict[str, Any]) -> None:
     console.print(table)
 
 
+def output_site_data_sync(result: dict[str, Any]) -> None:
+    console.print("[bold green]站点数据刷新任务已提交[/bold green]")
+    site_ids = result.get("site_ids") or []
+    if site_ids:
+        console.print(f"Site IDs: {', '.join(str(item) for item in site_ids)}")
+    elif result.get("all_enabled"):
+        console.print("Scope: all sites")
+    if result.get("message"):
+        console.print(f"Message: {result.get('message')}")
+    console.print("[dim]任务已提交，稍后用 site data latest 查看最新统计[/dim]")
+
+
 def output_site_sign_in_history(result: dict[str, Any]) -> None:
     console.print("[bold]Site Sign-In History[/bold]")
     items = result.get("list") or []

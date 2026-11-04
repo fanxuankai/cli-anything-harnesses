@@ -72,6 +72,7 @@ from .utils.output import (
     output_media_server_sync_run,
     output_plugin_call,
     output_site_data_latest,
+    output_site_data_sync,
     output_site_data_total,
     output_site_list,
     output_site_sign_in,
@@ -1425,6 +1426,28 @@ def site_data_latest(
             output_json(result)
         else:
             output_site_data_latest(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@site_data.command("sync")
+@click.option("--id", "site_ids", type=click.IntRange(min=1), multiple=True, help="Site ID. Repeat for multiple sites")
+@pass_ctx
+def site_data_sync(ctx: Context, site_ids: tuple[int, ...]) -> None:
+    """提交站点数据刷新任务。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.site_mgr.data_sync(site_ids=list(site_ids) or None)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_site_data_sync(result)
     except SystemExit:
         raise
     except Exception as exc:
