@@ -70,6 +70,8 @@ from .utils.output import (
     output_site_sign_in,
     output_site_sign_in_history,
     output_subscribe_add,
+    output_subscribe_detail,
+    output_subscribe_operation,
     output_subscribe_page,
     output_system_nas_info,
 )
@@ -1716,6 +1718,107 @@ def subscribe_add(
             output_json(result)
         else:
             output_subscribe_add(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@subscribe.command("detail")
+@click.option("--id", "subscribe_id", type=click.IntRange(min=1), required=True, help="Subscribe ID")
+@pass_ctx
+def subscribe_detail(ctx: Context, subscribe_id: int) -> None:
+    """查看订阅详情。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.subscribe_mgr.detail(subscribe_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_subscribe_detail(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@subscribe.command("pause")
+@click.option("--id", "subscribe_id", type=click.IntRange(min=1), required=True, help="Subscribe ID")
+@pass_ctx
+def subscribe_pause(ctx: Context, subscribe_id: int) -> None:
+    """暂停订阅。"""
+    _run_subscribe_operation(ctx, "pause", subscribe_id)
+
+
+@subscribe.command("resume")
+@click.option("--id", "subscribe_id", type=click.IntRange(min=1), required=True, help="Subscribe ID")
+@pass_ctx
+def subscribe_resume(ctx: Context, subscribe_id: int) -> None:
+    """恢复订阅并立即补搜一次。"""
+    _run_subscribe_operation(ctx, "resume", subscribe_id)
+
+
+@subscribe.command("delete")
+@click.option("--id", "subscribe_id", type=click.IntRange(min=1), required=True, help="Subscribe ID")
+@pass_ctx
+def subscribe_delete(ctx: Context, subscribe_id: int) -> None:
+    """删除订阅。"""
+    _run_subscribe_operation(ctx, "delete", subscribe_id)
+
+
+@subscribe.command("refresh")
+@click.option("--id", "subscribe_id", type=click.IntRange(min=1), required=True, help="Subscribe ID")
+@pass_ctx
+def subscribe_refresh(ctx: Context, subscribe_id: int) -> None:
+    """刷新单个订阅。"""
+    _run_subscribe_operation(ctx, "refresh", subscribe_id)
+
+
+@subscribe.command("refresh-all")
+@click.option(
+    "--type",
+    "media_type",
+    type=click.Choice(SUBSCRIBE_MEDIA_TYPE_CHOICES, case_sensitive=False),
+    required=True,
+    help="Subscribe media type",
+)
+@pass_ctx
+def subscribe_refresh_all(ctx: Context, media_type: str) -> None:
+    """按类型刷新全部订阅。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.subscribe_mgr.refresh_all(media_type)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_subscribe_operation(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+def _run_subscribe_operation(ctx: Context, action: str, subscribe_id: int) -> None:
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        manager = ctx.subscribe_mgr
+        result = getattr(manager, action)(subscribe_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_subscribe_operation(result)
     except SystemExit:
         raise
     except Exception as exc:

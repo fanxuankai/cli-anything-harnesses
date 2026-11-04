@@ -194,6 +194,17 @@ cli-anything-ms subscribe add --type movie --name "Interstellar" --year 2014 --t
 cli-anything-ms subscribe add --type tv --name "Breaking Bad" --year 2008 --season 1
 ```
 
+管理已有订阅：
+
+```bash
+cli-anything-ms --json subscribe pause --id 12
+cli-anything-ms --json subscribe resume --id 12
+cli-anything-ms --json subscribe delete --id 12
+cli-anything-ms --json subscribe refresh --id 12
+cli-anything-ms --json subscribe refresh-all --type tv
+cli-anything-ms --json subscribe detail --id 12
+```
+
 JSON 输出：
 
 ```bash

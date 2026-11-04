@@ -1831,6 +1831,64 @@ class TestSubscribeManager:
         with pytest.raises(ValueError, match="识别失败"):
             SubscribeManager(client).add(name="Unknown", media_type="movie", year=2020)
 
+    def test_lifecycle_operations_use_expected_endpoints(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = SubscribeManager(client)
+        assert manager.pause(5)["action"] == "pause"
+        assert manager.resume(5)["action"] == "resume"
+        assert manager.delete(5)["action"] == "delete"
+        assert manager.refresh(5)["action"] == "refresh"
+
+        client.request.assert_any_call("POST", "/api/v1/subscribe/pause/5")
+        client.request.assert_any_call("POST", "/api/v1/subscribe/resume/5")
+        client.request.assert_any_call("DELETE", "/api/v1/subscribe/delete/5")
+        client.request.assert_any_call("POST", "/api/v1/subscribe/refresh/5")
+
+    def test_detail_and_refresh_all_use_expected_endpoints(self):
+        client = MagicMock()
+        client.request.side_effect = [
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={"id": 5, "name": "庆余年", "type": "tv", "year": 2019, "season": 1, "status": 200, "tmdbId": 95842},
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data=None,
+                raw_body={},
+                is_standard_response=True,
+            ),
+        ]
+
+        manager = SubscribeManager(client)
+        detail = manager.detail(5)
+        refreshed = manager.refresh_all("tv")
+
+        assert detail["id"] == 5
+        assert refreshed["action"] == "refreshAll"
+        client.request.assert_any_call("GET", "/api/v1/subscribe/detail/5")
+        client.request.assert_any_call("POST", "/api/v1/subscribe/refreshAll", json_body={"mediaType": "tv"})
+
+        with pytest.raises(ValueError, match="--type must be movie or tv"):
+            SubscribeManager(MagicMock()).refresh_all("anime")
+
     def test_page_uses_subscribe_page_endpoint(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(

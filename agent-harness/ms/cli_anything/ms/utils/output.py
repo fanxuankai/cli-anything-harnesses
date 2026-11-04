@@ -342,6 +342,39 @@ def output_subscribe_add(result: dict[str, Any]) -> None:
     console.print("[cyan]status[/cyan]: 已按默认配置提交")
 
 
+def output_subscribe_operation(result: dict[str, Any]) -> None:
+    console.print(f"[bold green]订阅操作 {result.get('action', '')} 已提交[/bold green]")
+    console.print(f"Subscribe ID: {result.get('subscribe_id', '')}")
+    if result.get("media_type"):
+        console.print(f"Type: {result.get('media_type')}")
+    if result.get("message"):
+        console.print(f"Message: {result.get('message')}")
+
+
+def output_subscribe_detail(result: dict[str, Any]) -> None:
+    console.print("[bold]Subscribe Detail[/bold]")
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("ID")
+    table.add_column("Name")
+    table.add_column("Type")
+    table.add_column("Year")
+    table.add_column("Season")
+    table.add_column("Status")
+    table.add_column("TMDB")
+    status_value = result.get("status")
+    status_text = SUBSCRIBE_STATUS_LABELS.get(status_value, "" if status_value in (None, "") else str(status_value))
+    table.add_row(
+        _text(result.get("id")),
+        _text(result.get("name")),
+        _text(result.get("type")),
+        _text(result.get("year")),
+        _text(result.get("season")),
+        status_text,
+        _text(result.get("tmdbId")),
+    )
+    console.print(table)
+
+
 def output_cloud_resource_search(result: dict[str, Any]) -> None:
     total = result.get("total", 0)
     page_num = result.get("pageNum", 1)

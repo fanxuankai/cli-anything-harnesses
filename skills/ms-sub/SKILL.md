@@ -97,6 +97,26 @@ pip install cli-anything-ms
 - 如果用户明确要求原始结果，再补充原始 JSON。
 - 查看订阅时，不要先做 TMDB 搜索。
 
+### 管理已有订阅
+
+- 适用于：
+    - `暂停这个订阅` `恢复订阅` `删掉这个订阅` `刷新这个订阅` `刷新全部电视剧订阅`
+- 操作前先用 `subscribe page` 或 `subscribe detail` 确认目标订阅的编号；编号不确定时先列出候选让用户选。
+- 各操作命令：
+
+  ```bash
+  cli-anything-ms --json subscribe pause --id <subscribe_id>      # 暂停（停止自动和手动触发）
+  cli-anything-ms --json subscribe resume --id <subscribe_id>     # 恢复（并立即补搜一次）
+  cli-anything-ms --json subscribe delete --id <subscribe_id>     # 删除
+  cli-anything-ms --json subscribe refresh --id <subscribe_id>    # 刷新单个订阅
+  cli-anything-ms --json subscribe refresh-all --type <movie|tv>  # 按类型刷新全部
+  ```
+
+- 删除是不可逆操作：执行前必须复述目标订阅的名称和年份让用户确认，不要凭一句“删了吧”直接删。
+- 暂停、恢复、刷新是可逆或低风险操作，目标确认后可直接执行。
+- 执行后只说明操作已提交，不承诺后端已经完成。
+- 不做批量编辑、批量对齐默认配置、重新订阅这类管理操作。
+
 ## 注意事项
 
 - TMDB 是唯一搜索源，不要搜索豆瓣。

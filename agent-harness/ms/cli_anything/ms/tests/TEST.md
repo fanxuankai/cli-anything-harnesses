@@ -22,6 +22,7 @@
 - `plugin call` 的 JSON 解析、请求路径和输出格式
 - `SubscribeManager.page` 的 page 路径访问与参数拼装
 - `SubscribeManager.add` 的最小 payload 与 tmdbId 透传（默认配置由后端运行时兜底）
+- `SubscribeManager.pause/resume/delete/refresh/refresh_all/detail` 的路径访问与参数校验
 - `ApiResponse` 对标准 `code/message/data` 的解包
 - 非标准响应的保留
 - `media search` 的 JSON 输出、人类可读表格输出、空结果和参数校验
