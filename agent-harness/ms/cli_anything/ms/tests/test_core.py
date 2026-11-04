@@ -1750,6 +1750,55 @@ class TestCloudResourceManager:
         with pytest.raises(ValueError, match="仙石不足"):
             CloudResourceManager(client).submit_download({"csHashId": 1, "materialType": "ed2k", "action": "offline_download"}, dir_path=None)
 
+    def test_tasks_uses_cloud_storage_task_endpoints(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={
+                "total": 1,
+                "pageNum": 1,
+                "pageSize": 20,
+                "list": [
+                    {
+                        "id": "task-1",
+                        "name": "庆余年 S01E46",
+                        "state": 1,
+                        "status": "running",
+                        "progress": 0.456,
+                        "speed": 1048576,
+                        "totalBytes": 2251076541,
+                        "error": "",
+                        "task_event": {"source_file": "qyn.E46.mp4", "target_file_path": "/cloud/tv/qyn.E46.mp4"},
+                        "tmdbMedia": {"title": "庆余年"},
+                    }
+                ],
+            },
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = CloudResourceManager(client).tasks(state="undone", task_type="download", keyword="庆余年")
+
+        assert result["total"] == 1
+        item = result["list"][0]
+        assert item["state_text"] == "处理中"
+        assert item["progress_percent"] == 45.6
+        assert item["speed_text"] == "1.00 MB/s"
+        assert item["file_name"] == "qyn.E46.mp4"
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/cloudStorageTask/undone",
+            params={"type": "download", "pageNum": "1", "pageSize": "20", "keyword": "庆余年"},
+        )
+
+        with pytest.raises(ValueError, match="--state must be undone or done"):
+            CloudResourceManager(MagicMock()).tasks(state="running")
+        with pytest.raises(ValueError, match="--task-type must be one of"):
+            CloudResourceManager(MagicMock()).tasks(task_type="bogus")
+
     def test_rank_fetches_list_and_mine(self):
         client = MagicMock()
         client.request.side_effect = [

@@ -20,6 +20,8 @@ from .core.cloud_resource import (
     CLOUD_RESOURCE_ORDER_DIRECTION_CHOICES,
     CLOUD_RESOURCE_RANK_RANGE_CHOICES,
     CLOUD_RESOURCE_RANK_STAT_CHOICES,
+    CLOUD_TASK_STATE_CHOICES,
+    CLOUD_TASK_TYPE_CHOICES,
 )
 from .core.cloud_resource import MEDIA_TYPE_CHOICES as CLOUD_RESOURCE_MEDIA_TYPE_CHOICES
 from .core.cloud_resource import CloudResourceManager
@@ -1636,6 +1638,57 @@ def cloud_resource_download(ctx: Context, request_json: str, dir_path: Optional[
             output_json(result)
         else:
             output_cloud_resource_download(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@cloud_resource.command("tasks")
+@click.option(
+    "--state",
+    type=click.Choice(CLOUD_TASK_STATE_CHOICES, case_sensitive=False),
+    default="undone",
+    show_default=True,
+    help="Task state",
+)
+@click.option(
+    "--task-type",
+    type=click.Choice(CLOUD_TASK_TYPE_CHOICES, case_sensitive=False),
+    default="download",
+    show_default=True,
+    help="Task type",
+)
+@click.option("--keyword", help="Keyword filter on file name or path")
+@click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
+@click.option("--page-size", type=click.IntRange(min=1), default=20, show_default=True, help="Page size")
+@pass_ctx
+def cloud_resource_tasks(
+    ctx: Context,
+    state: str,
+    task_type: str,
+    keyword: Optional[str],
+    page: int,
+    page_size: int,
+) -> None:
+    """查询云存储任务进度。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.cloud_resource_mgr.tasks(
+            state=state.lower(),
+            task_type=task_type,
+            keyword=keyword,
+            page=page,
+            page_size=page_size,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_cloud_resource_tasks(result)
     except SystemExit:
         raise
     except Exception as exc:

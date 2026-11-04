@@ -31,6 +31,15 @@ ACTION_BY_LINK_TYPE = {
 }
 MATERIAL_TYPE_CHOICES = ("ed2k", "123_fast_link")
 ACTION_CHOICES = ("offline_download", "share_receive", "copy_link")
+CLOUD_TASK_STATE_CHOICES = ("undone", "done")
+CLOUD_TASK_TYPE_CHOICES = ("upload", "download", "shareReceive", "copy")
+CLOUD_TASK_STATE_LABELS = {
+    0: "等待中",
+    1: "处理中",
+    2: "已完成",
+    3: "失败",
+    4: "已取消",
+}
 
 
 CLOUD_RESOURCE_ORDER_BY_CHOICES = ("size", "pubdate")
@@ -124,6 +133,39 @@ class CloudResourceManager:
             "items": normalized,
             "message": response.message,
         }
+
+    def tasks(
+        self,
+        *,
+        state: str = "undone",
+        task_type: str = "download",
+        keyword: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict[str, Any]:
+        state = (state or "").strip().lower()
+        if state not in CLOUD_TASK_STATE_CHOICES:
+            raise ValueError("--state must be undone or done")
+        task_type = (task_type or "").strip()
+        if task_type not in CLOUD_TASK_TYPE_CHOICES:
+            raise ValueError("--task-type must be one of: " + ", ".join(CLOUD_TASK_TYPE_CHOICES))
+
+        params: dict[str, str] = {
+            "type": task_type,
+            "pageNum": str(page),
+            "pageSize": str(page_size),
+        }
+        keyword = (keyword or "").strip()
+        if keyword:
+            params["keyword"] = keyword
+
+        response = self.client.request("GET", f"/api/v1/cloudStorageTask/{state}", params=params)
+        if not response.ok:
+            message = response.message or f"Cloud storage tasks failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if not isinstance(response.data, dict):
+            raise ValueError("Cloud storage tasks returned an unexpected response payload")
+        return self._normalize_task_page(response.data)
 
     def rank(self, *, range_type: str = "today", stat_type: str = "count", refresh: bool = False) -> dict[str, Any]:
         range_type = (range_type or "").strip().lower()
@@ -294,6 +336,42 @@ class CloudResourceManager:
             "task_type": str(result.get("taskType", "") or ""),
             "message": str(result.get("message", "") or ""),
             "link": str(result.get("link", "") or ""),
+        }
+
+    def _normalize_task_page(self, data: dict[str, Any]) -> dict[str, Any]:
+        items = data.get("list") or []
+        if not isinstance(items, list):
+            items = []
+        return {
+            "total": self._to_int(data.get("total")) or 0,
+            "pageNum": self._to_int(data.get("pageNum")) or 1,
+            "pageSize": self._to_int(data.get("pageSize")) or len(items),
+            "list": [self._normalize_task_item(item) for item in items],
+        }
+
+    def _normalize_task_item(self, item: Any) -> dict[str, Any]:
+        if not isinstance(item, dict):
+            item = {}
+        state = self._to_int(item.get("state"))
+        task_event = item.get("task_event") if isinstance(item.get("task_event"), dict) else {}
+        return {
+            "id": str(item.get("id", "") or ""),
+            "name": str(item.get("name", "") or ""),
+            "state": state,
+            "state_text": CLOUD_TASK_STATE_LABELS.get(state, "" if state is None else str(state)),
+            "status": str(item.get("status", "") or ""),
+            "progress": self._to_float(item.get("progress")) or 0.0,
+            "progress_percent": round((self._to_float(item.get("progress")) or 0.0) * 100, 1),
+            "speed": self._to_float(item.get("speed")) or 0.0,
+            "speed_text": f"{_format_bytes(self._to_float(item.get('speed')) or 0)}/s",
+            "total_bytes": self._to_int(item.get("totalBytes")) or 0,
+            "total_bytes_text": _format_bytes(item.get("totalBytes")),
+            "error": str(item.get("error", "") or ""),
+            "file_name": str(task_event.get("source_file", "") or ""),
+            "target_path": str(task_event.get("target_file_path", "") or ""),
+            "tmdb_title": str((item.get("tmdbMedia") or {}).get("title", "") or "") if isinstance(item.get("tmdbMedia"), dict) else "",
+            "start_time": self._to_int(item.get("start_time")),
+            "end_time": self._to_int(item.get("end_time")),
         }
 
     def _normalize_rank_item(self, item: Any, *, rank: int, stat_type: str) -> dict[str, Any]:

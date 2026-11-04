@@ -435,6 +435,35 @@ def output_cloud_resource_download(result: dict[str, Any]) -> None:
         console.print("[dim]任务已提交，进度请用 cloud-resource tasks 查询[/dim]")
 
 
+def output_cloud_resource_tasks(result: dict[str, Any]) -> None:
+    console.print("[bold]Cloud Storage Tasks[/bold]")
+    items = result.get("list") or []
+    console.print(
+        f"Page: {result.get('pageNum', 1)} / Page Size: {result.get('pageSize', len(items))} / Total: {result.get('total', 0)}"
+    )
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Name")
+    table.add_column("State")
+    table.add_column("Progress")
+    table.add_column("Speed")
+    table.add_column("Size")
+    table.add_column("Error")
+    for item in items:
+        table.add_row(
+            _text(item.get("name") or item.get("file_name") or item.get("tmdb_title")),
+            _text(item.get("state_text") or item.get("status")),
+            f"{item.get('progress_percent', 0)}%",
+            _text(item.get("speed_text")),
+            _text(item.get("total_bytes_text")),
+            _text(item.get("error")),
+        )
+    console.print(table)
+
+
 def output_cloud_resource_rank(result: dict[str, Any]) -> None:
     range_type = str(result.get("range_type", "") or "")
     stat_type = str(result.get("stat_type", "") or "")
