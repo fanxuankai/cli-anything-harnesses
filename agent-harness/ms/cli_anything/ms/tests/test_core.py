@@ -326,6 +326,86 @@ class TestSystemManager:
         with pytest.raises(ValueError, match="boom"):
             SystemManager(client).nas_info()
 
+    def test_workbench_uses_workbench_overview_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"site": {"total": 3}, "system": {}, "library": {"movies": 100}, "play": {}},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = SystemManager(client).workbench(force=True)
+
+        assert result["site"]["total"] == 3
+        client.request.assert_called_once_with("GET", "/api/v1/system/workbenchOverview", params={"force": "true"})
+
+    def test_health_overview_and_report_and_version_use_expected_endpoints(self):
+        client = MagicMock()
+        client.request.side_effect = [
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={"cpuUsedPercent": 12.5, "memUsedPercent": 60.0, "diskUsedPercent": 80.0},
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={
+                    "overall": "warn",
+                    "score": 80,
+                    "okCount": 9,
+                    "warnCount": 1,
+                    "errorCount": 0,
+                    "groups": [
+                        {
+                            "group": "network",
+                            "title": "网络",
+                            "items": [
+                                {"key": "network.tmdb", "title": "TMDB 连通", "status": "ok", "summary": "正常"},
+                                {"key": "network.proxy", "title": "代理连通", "status": "warn", "summary": "响应慢", "suggestion": "检查代理配置"},
+                            ],
+                        }
+                    ],
+                },
+                raw_body={},
+                is_standard_response=True,
+            ),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={"hasUpdate": True, "latestVersion": "v1.2.0", "versions": []},
+                raw_body={},
+                is_standard_response=True,
+            ),
+        ]
+
+        manager = SystemManager(client)
+        overview = manager.health_overview()
+        report = manager.health_report(refresh=True)
+        version = manager.version()
+
+        assert overview["cpuUsedPercent"] == 12.5
+        assert report["overall"] == "warn"
+        assert report["groups"][0]["items"][1]["suggestion"] == "检查代理配置"
+        assert version["has_update"] is True
+        assert version["latest_version"] == "v1.2.0"
+
+        client.request.assert_any_call("GET", "/api/v1/system/health/overview")
+        client.request.assert_any_call("GET", "/api/v1/system/health/report", params={"refresh": "true"})
+        client.request.assert_any_call("GET", "/api/v1/system/upgradeVersion")
+
 
 class TestMediaManager:
 

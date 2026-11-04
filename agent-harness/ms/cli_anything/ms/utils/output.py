@@ -730,6 +730,112 @@ def output_plugin_call(result: Any) -> None:
         console.print("[bold green]插件调用成功[/bold green]")
 
 
+def output_system_workbench(result: dict[str, Any]) -> None:
+    console.print("[bold]Workbench Overview[/bold]")
+
+    def _section(key: str) -> dict[str, Any]:
+        value = result.get(key)
+        return value if isinstance(value, dict) else {}
+
+    site = _section("site")
+    system = _section("system")
+    library = _section("library")
+    play = _section("play")
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Section")
+    table.add_column("Data")
+    rows: list[tuple[str, str]] = []
+    if site:
+        rows.append(("站点", " / ".join(f"{k}: {v}" for k, v in site.items() if v not in (None, "", 0))))
+    if system:
+        rows.append(("系统", " / ".join(f"{k}: {v}" for k, v in system.items() if v not in (None, "", 0))))
+    if library:
+        rows.append(("媒体库", " / ".join(f"{k}: {v}" for k, v in library.items() if v not in (None, "", 0))))
+    if play:
+        rows.append(("播放", " / ".join(f"{k}: {v}" for k, v in play.items() if v not in (None, "", 0))))
+    if not rows:
+        console.print("[dim](空)[/dim]")
+        return
+    for section, data in rows:
+        table.add_row(section, data)
+    console.print(table)
+
+
+def output_system_health_overview(result: dict[str, Any]) -> None:
+    console.print("[bold]System Health Overview[/bold]")
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("CPU")
+    table.add_column("Memory")
+    table.add_column("Disk")
+    table.add_column("Queue Pending", justify="right")
+    table.add_column("Queue Failed", justify="right")
+    table.add_column("Sites", justify="right")
+    table.add_column("Downloaders", justify="right")
+    table.add_column("Media Servers", justify="right")
+    table.add_column("Cloud Drives", justify="right")
+    table.add_row(
+        _format_percent(result.get("cpuUsedPercent")),
+        _format_percent(result.get("memUsedPercent")),
+        _format_percent(result.get("diskUsedPercent")),
+        _text(result.get("queuePending")),
+        _text(result.get("queueFailed")),
+        _text(result.get("siteCount")),
+        _text(result.get("downloaderCount")),
+        _text(result.get("mediaServerCount")),
+        _text(result.get("cloudCount")),
+    )
+    console.print(table)
+
+
+def output_system_health_report(result: dict[str, Any]) -> None:
+    console.print("[bold]System Health Report[/bold]")
+    overall = str(result.get("overall", "") or "")
+    overall_label = {"ok": "正常", "warn": "警告", "error": "异常"}.get(overall, overall)
+    console.print(
+        f"Overall: {overall_label} / Score: {result.get('score', 0)} / "
+        f"OK {result.get('okCount', 0)} / Warn {result.get('warnCount', 0)} / Error {result.get('errorCount', 0)}"
+    )
+
+    groups = result.get("groups") or []
+    if not groups:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Group")
+    table.add_column("Status")
+    table.add_column("Item")
+    table.add_column("Summary")
+    table.add_column("Suggestion")
+    for group in groups:
+        if not isinstance(group, dict):
+            continue
+        for item in group.get("items") or []:
+            if not isinstance(item, dict):
+                continue
+            status = str(item.get("status", "") or "")
+            if status == "ok":
+                continue
+            table.add_row(
+                _text(item.get("group_title") or group.get("title")),
+                status,
+                _text(item.get("title")),
+                _text(item.get("summary")),
+                _text(item.get("suggestion")),
+            )
+    console.print(table)
+    console.print("[dim]只列出非正常检查项；全部正常时表格为空[/dim]")
+
+
+def output_system_version(result: dict[str, Any]) -> None:
+    console.print("[bold]System Version[/bold]")
+    if result.get("has_update"):
+        console.print(f"[yellow]有可用更新[/yellow]: {result.get('latest_version', '')}")
+    else:
+        console.print("[green]已是最新版本[/green]")
+
+
 def output_calendar_list(result: dict[str, Any]) -> None:
     console.print("[bold]Subscribe Calendar[/bold]")
     console.print(f"[cyan]Start[/cyan]: {result.get('start', '')} / [cyan]Days[/cyan]: {result.get('days', '')} / [cyan]Total[/cyan]: {result.get('total', 0)}")

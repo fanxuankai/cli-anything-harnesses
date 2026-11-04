@@ -78,7 +78,11 @@ from .utils.output import (
     output_subscribe_detail,
     output_subscribe_operation,
     output_subscribe_page,
+    output_system_health_overview,
+    output_system_health_report,
     output_system_nas_info,
+    output_system_version,
+    output_system_workbench,
 )
 
 
@@ -325,6 +329,92 @@ def system_nas_info(ctx: Context) -> None:
             output_json(result)
         else:
             output_system_nas_info(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@system.command("workbench")
+@click.option("--force", is_flag=True, help="Ignore backend cache and refresh")
+@pass_ctx
+def system_workbench(ctx: Context, force: bool) -> None:
+    """查看工作台聚合概览。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.system_mgr.workbench(force=force)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_system_workbench(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@system.command("health")
+@pass_ctx
+def system_health(ctx: Context) -> None:
+    """查看系统体检即时概览。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.system_mgr.health_overview()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_system_health_overview(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@system.command("health-report")
+@click.option("--refresh", is_flag=True, help="Ignore backend cache and re-run checks")
+@pass_ctx
+def system_health_report(ctx: Context, refresh: bool) -> None:
+    """查看系统体检报告明细。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.system_mgr.health_report(refresh=refresh)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_system_health_report(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@system.command("version")
+@pass_ctx
+def system_version(ctx: Context) -> None:
+    """查看系统版本与更新状态。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.system_mgr.version()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_system_version(result)
     except SystemExit:
         raise
     except Exception as exc:

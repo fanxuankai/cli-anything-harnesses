@@ -1,0 +1,4 @@
+interface:
+  display_name: "ms 系统状态"
+  short_description: "用 ms CLI 一句话总览系统运行情况、系统体检结果和版本更新状态"
+  default_prompt: "使用 $ms-status 总览系统运行情况；我追问体检明细或新版本时再深入查询。"
