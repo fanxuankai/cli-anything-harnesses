@@ -6,7 +6,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/commits/main)
 [![Issues](https://img.shields.io/github/issues/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/issues)
 [![Pull requests](https://img.shields.io/github/issues-pr/fanxuankai/cli-anything-harnesses)](https://github.com/fanxuankai/cli-anything-harnesses/pulls)
-[![Skills](https://img.shields.io/badge/skills-12-2f6f9f)](#skills)
+[![Skills](https://img.shields.io/badge/skills-14-2f6f9f)](#skills)
 [![PyPI - cli-anything-ms](https://img.shields.io/pypi/v/cli-anything-ms?label=cli-anything-ms)](https://pypi.org/project/cli-anything-ms/)
 [![PyPI - cli-anything-cliproxyapi](https://img.shields.io/pypi/v/cli-anything-cliproxyapi?label=cli-anything-cliproxyapi)](https://pypi.org/project/cli-anything-cliproxyapi/)
 
@@ -25,17 +25,19 @@
 
 | Skill                                                                  | 用途                   | 安装                                                                                  |
 |------------------------------------------------------------------------|----------------------|-------------------------------------------------------------------------------------|
-| [`ms-sub`](skills/ms-sub/SKILL.md)                                     | 搜索影视、订阅影视、查看订阅列表。    | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-sub`                   |
-| [`ms-gap-filler`](skills/ms-gap-filler/SKILL.md)                       | 检查电视剧漏集，或把漏集转成订阅补齐。  | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-gap-filler`            |
+| [`ms-sub`](skills/ms-sub/SKILL.md)                                     | 搜索影视、订阅影视、管理订阅、查季集和演员。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-sub`                   |
+| [`ms-gap-filler`](skills/ms-gap-filler/SKILL.md)                       | 检查电视剧漏集，按后端决策补齐订阅。  | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-gap-filler`            |
 | [`ms-recommend`](skills/ms-recommend/SKILL.md)                         | 查看豆瓣、TMDB 等影视推荐。     | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-recommend`             |
 | [`ms-rank`](skills/ms-rank/SKILL.md)                                   | 查看豆瓣等影视榜单。           | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-rank`                  |
-| [`ms-cloud-resource`](skills/ms-cloud-resource/SKILL.md)               | 查询云端资源，并提交云下载或转存任务。  | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-cloud-resource`        |
+| [`ms-cloud-resource`](skills/ms-cloud-resource/SKILL.md)               | 查询云端资源和站点种子，提交下载并跟踪任务。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-cloud-resource`        |
 | [`ms-cloud-resource-rank`](skills/ms-cloud-resource-rank/SKILL.md)     | 查看云端资源 HASH 上报贡献榜。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-cloud-resource-rank`   |
-| [`ms-media-server`](skills/ms-media-server/SKILL.md)                   | 查看媒体服务器、同步统计、媒体库和播放列表。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-media-server`          |
+| [`ms-media-server`](skills/ms-media-server/SKILL.md)                   | 查看媒体服务器、同步统计、媒体库和库内检索。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-media-server`          |
 | [`ms-site-state`](skills/ms-site-state/SKILL.md)                       | 查看站点状态、站点统计、上传下载量和签到状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-site-state`            |
 | [`ms-site-signin`](skills/ms-site-signin/SKILL.md)                     | 查看或执行站点签到。          | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-site-signin`           |
 | [`ms-download`](skills/ms-download/SKILL.md)                           | 查看下载器、下载中任务和下载历史。    | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-download`              |
 | [`ms-nas-state`](skills/ms-nas-state/SKILL.md)                         | 查看 NAS 系统、硬件、存储、网络、风扇和 UPS 状态。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-nas-state`             |
+| [`ms-calendar`](skills/ms-calendar/SKILL.md)                           | 查看追剧日历、全平台播出日历和 iCal 订阅地址。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-calendar`              |
+| [`ms-status`](skills/ms-status/SKILL.md)                               | 一句话总览系统状态、系统体检和版本更新。 | `npx skills add fanxuankai/cli-anything-harnesses --skill ms-status`                |
 | [`cli-anything-cliproxyapi`](skills/cli-anything-cliproxyapi/SKILL.md) | 管理 CLIProxyAPI 代理服务。 | `npx skills add fanxuankai/cli-anything-harnesses --skill cli-anything-cliproxyapi` |
 
 ## Quick Start

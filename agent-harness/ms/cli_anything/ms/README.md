@@ -2,7 +2,7 @@
 
 ms 后端的最小可用 CLI harness。
 
-当前提供稳定连接层，以及显式业务命令 `media search`、`media rank`、`media recommend`、`cloud-resource search/download/rank`、`media-server`、`site`、`download`、`plugin call` 和 `subscribe add`。
+当前提供稳定连接层，以及显式业务命令 `media`（搜索/榜单/推荐/季集/演员）、`subscribe`、`media-server`、`media-health`、`calendar`、`cloud-resource`、`site`、`download`、`system`、`plugin call`。
 
 ## 安装
 
@@ -444,11 +444,25 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `config save-connection`
 - `config show-connection`
 - `system nas-info`
-- `media search`
+- `system workbench`
+- `system health`
+- `system health-report`
+- `system version`
+- `calendar list`
+- `calendar ical-urls`
+- `calendar airing-types`
+- `calendar airing-platforms`
+- `calendar airing-days`
+- `calendar airing-shows`
+- `media search`（含 `--source all` 全源搜索）
+- `media season-episodes`
+- `media person`
 - `media rank`
 - `media recommend`
 - `cloud-resource search`
 - `cloud-resource download`
+- `cloud-resource download-site`
+- `cloud-resource tasks`
 - `cloud-resource rank`
 - `media-server list`
 - `media-server detail`
