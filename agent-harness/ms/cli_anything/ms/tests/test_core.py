@@ -1209,6 +1209,29 @@ class TestSiteManager:
         )
         client.request.assert_any_call("POST", "/api/v1/siteSignIn/go", json_body={"ids": [1, 2]})
 
+    def test_sign_in_history_passes_result_filter(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"total": 0, "pageNum": 1, "pageSize": 20, "list": []},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        SiteManager(client).sign_in_history(result="failure")
+
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/siteSignIn/page",
+            params={"pageNum": "1", "pageSize": "20", "result": "failure"},
+        )
+
+        with pytest.raises(ValueError, match="--result must be all, success, or failure"):
+            SiteManager(MagicMock()).sign_in_history(result="bogus")
+
     def test_site_methods_reject_unexpected_payloads(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(
@@ -1484,6 +1507,29 @@ class TestCloudResourceManager:
 
         with pytest.raises(ValueError, match="requires --keyword"):
             manager.search(page=1, page_size=25)
+
+    def test_search_passes_order_options(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"total": 0, "pageNum": 1, "pageSize": 25, "list": []},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        CloudResourceManager(client).search(keyword="庆余年", order_by="size", order_direction="desc")
+
+        client.request.assert_called_once()
+        assert client.request.call_args.kwargs["json_body"]["orderBy"] == "size"
+        assert client.request.call_args.kwargs["json_body"]["orderDirection"] == "desc"
+
+        with pytest.raises(ValueError, match="--order-by must be size or pubdate"):
+            CloudResourceManager(MagicMock()).search(keyword="x", order_by="title")
+        with pytest.raises(ValueError, match="--order-direction must be asc or desc"):
+            CloudResourceManager(MagicMock()).search(keyword="x", order_direction="up")
 
     def test_tmdb_search_requires_media_type(self):
         manager = CloudResourceManager(MagicMock())
@@ -2095,6 +2141,8 @@ class TestCLI:
             begin_episode,
             end_episode,
             creator_id,
+            order_by,
+            order_direction,
             page,
             page_size,
         ):
@@ -3321,8 +3369,9 @@ class TestCLI:
     def test_site_sign_in_history_command_json(self, monkeypatch):
         runner = CliRunner()
 
-        def fake_sign_in_history(self, *, site_name, page, page_size):
+        def fake_sign_in_history(self, *, site_name, result, page, page_size):
             assert site_name == "馒头"
+            assert result is None
             assert page == 2
             assert page_size == 5
             return {

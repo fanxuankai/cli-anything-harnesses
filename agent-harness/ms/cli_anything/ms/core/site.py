@@ -27,6 +27,9 @@ SITE_SIGN_IN_CODE_LABELS = {
 }
 
 
+SITE_SIGN_IN_RESULT_CHOICES = ("all", "success", "failure")
+
+
 class SiteManager:
     """Business-level helpers for site-related commands."""
 
@@ -99,7 +102,14 @@ class SiteManager:
         items = [self._normalize_site_data(item) for item in response.data]
         return {"total": len(items), "items": items}
 
-    def sign_in_history(self, *, site_name: Optional[str] = None, page: int = 1, page_size: int = 20) -> dict[str, Any]:
+    def sign_in_history(
+        self,
+        *,
+        site_name: Optional[str] = None,
+        result: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict[str, Any]:
         params = {
             "pageNum": str(page),
             "pageSize": str(page_size),
@@ -107,6 +117,11 @@ class SiteManager:
         site_name = (site_name or "").strip()
         if site_name:
             params["siteName"] = site_name
+        result = (result or "").strip().lower()
+        if result and result != "all":
+            if result not in SITE_SIGN_IN_RESULT_CHOICES:
+                raise ValueError("--result must be all, success, or failure")
+            params["result"] = result
 
         response = self.client.request("GET", "/api/v1/siteSignIn/page", params=params)
         if not response.ok:

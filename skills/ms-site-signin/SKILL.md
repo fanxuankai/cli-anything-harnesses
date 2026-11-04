@@ -30,6 +30,12 @@ cli-anything-ms --json site sign-in history --page 1 --page-size 20
 --site-name "<site name>"
 ```
 
+用户明确只关心失败记录时（例如“哪些站签到失败”），直接追加：
+
+```bash
+--result failure
+```
+
 回复时说明站点、签到结果、签到信息和签到时间。优先点名失败、未登录或异常站点。
 
 ## 执行签到

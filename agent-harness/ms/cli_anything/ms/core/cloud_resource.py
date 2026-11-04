@@ -33,6 +33,10 @@ MATERIAL_TYPE_CHOICES = ("ed2k", "123_fast_link")
 ACTION_CHOICES = ("offline_download", "share_receive", "copy_link")
 
 
+CLOUD_RESOURCE_ORDER_BY_CHOICES = ("size", "pubdate")
+CLOUD_RESOURCE_ORDER_DIRECTION_CHOICES = ("asc", "desc")
+
+
 class CloudResourceManager:
     """Business-level helpers for cloud resource search and download submission."""
 
@@ -50,12 +54,21 @@ class CloudResourceManager:
         begin_episode: Optional[int] = None,
         end_episode: Optional[int] = None,
         creator_id: Optional[int] = None,
+        order_by: Optional[str] = None,
+        order_direction: Optional[str] = None,
         page: int = 1,
         page_size: int = 25,
     ) -> dict[str, Any]:
         keyword = (keyword or "").strip()
         media_type = (media_type or "").strip()
         self._validate_search(keyword=keyword, tmdb_id=tmdb_id, media_type=media_type, creator_id=creator_id)
+
+        order_by = (order_by or "").strip().lower()
+        if order_by and order_by not in CLOUD_RESOURCE_ORDER_BY_CHOICES:
+            raise ValueError("--order-by must be size or pubdate")
+        order_direction = (order_direction or "").strip().lower()
+        if order_direction and order_direction not in CLOUD_RESOURCE_ORDER_DIRECTION_CHOICES:
+            raise ValueError("--order-direction must be asc or desc")
 
         body: dict[str, Any] = {"searchCloudStorage": True}
         if keyword:
@@ -74,6 +87,10 @@ class CloudResourceManager:
             body["endEpisode"] = end_episode
         if creator_id is not None:
             body["creatorId"] = creator_id
+        if order_by:
+            body["orderBy"] = order_by
+        if order_direction:
+            body["orderDirection"] = order_direction
 
         response = self.client.request(
             "POST",

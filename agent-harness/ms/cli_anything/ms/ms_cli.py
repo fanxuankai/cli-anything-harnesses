@@ -14,7 +14,12 @@ import click
 
 from . import __version__
 from .core.client import ConnectionConfig, MSClient
-from .core.cloud_resource import CLOUD_RESOURCE_RANK_RANGE_CHOICES, CLOUD_RESOURCE_RANK_STAT_CHOICES
+from .core.cloud_resource import (
+    CLOUD_RESOURCE_ORDER_BY_CHOICES,
+    CLOUD_RESOURCE_ORDER_DIRECTION_CHOICES,
+    CLOUD_RESOURCE_RANK_RANGE_CHOICES,
+    CLOUD_RESOURCE_RANK_STAT_CHOICES,
+)
 from .core.cloud_resource import MEDIA_TYPE_CHOICES as CLOUD_RESOURCE_MEDIA_TYPE_CHOICES
 from .core.cloud_resource import CloudResourceManager
 from .core.download import MEDIA_TYPE_CHOICES as DOWNLOAD_MEDIA_TYPE_CHOICES
@@ -23,7 +28,7 @@ from .core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA
 from .core.media_health import MEDIA_HEALTH_ISSUE_TYPE_CHOICES, MEDIA_HEALTH_STATUS_CHOICES, MediaHealthManager
 from .core.media_server import MEDIA_TYPE_CHOICES as MEDIA_SERVER_MEDIA_TYPE_CHOICES
 from .core.media_server import MediaServerManager
-from .core.site import SITE_SWITCH_TYPE_CHOICES, SiteManager
+from .core.site import SITE_SIGN_IN_RESULT_CHOICES, SITE_SWITCH_TYPE_CHOICES, SiteManager
 from .core.subscribe import MEDIA_TYPE_CHOICES as SUBSCRIBE_MEDIA_TYPE_CHOICES
 from .core.subscribe import SubscribeManager
 from .core.system import SystemManager
@@ -1225,17 +1230,34 @@ def site_sign_in(ctx: Context) -> None:
 
 @site_sign_in.command("history")
 @click.option("--site-name", help="Site name filter")
+@click.option(
+    "--result",
+    "result_filter",
+    type=click.Choice(SITE_SIGN_IN_RESULT_CHOICES, case_sensitive=False),
+    help="Filter by sign-in result",
+)
 @click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
 @click.option("--page-size", type=click.IntRange(min=1), default=20, show_default=True, help="Page size")
 @pass_ctx
-def site_sign_in_history(ctx: Context, site_name: Optional[str], page: int, page_size: int) -> None:
+def site_sign_in_history(
+    ctx: Context,
+    site_name: Optional[str],
+    result_filter: Optional[str],
+    page: int,
+    page_size: int,
+) -> None:
     """查看站点签到记录。"""
     try:
         if ctx.conn is None:
             raise ValueError("Connection state is unavailable")
         ctx.conn.require_configured()
 
-        result = ctx.site_mgr.sign_in_history(site_name=site_name, page=page, page_size=page_size)
+        result = ctx.site_mgr.sign_in_history(
+            site_name=site_name,
+            result=result_filter.lower() if result_filter else None,
+            page=page,
+            page_size=page_size,
+        )
 
         if ctx.json_mode:
             output_json(result)
@@ -1460,6 +1482,16 @@ def cloud_resource(ctx: Context) -> None:
 @click.option("--begin-episode", type=click.IntRange(min=1), help="Begin episode number")
 @click.option("--end-episode", type=click.IntRange(min=1), help="End episode number")
 @click.option("--creator-id", type=click.IntRange(min=1), help="Cloud resource creator ID")
+@click.option(
+    "--order-by",
+    type=click.Choice(CLOUD_RESOURCE_ORDER_BY_CHOICES, case_sensitive=False),
+    help="Order field for cloud resources (cloud search only)",
+)
+@click.option(
+    "--order-direction",
+    type=click.Choice(CLOUD_RESOURCE_ORDER_DIRECTION_CHOICES, case_sensitive=False),
+    help="Order direction",
+)
 @click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
 @click.option(
     "--page-size",
@@ -1479,6 +1511,8 @@ def cloud_resource_search(
     begin_episode: Optional[int],
     end_episode: Optional[int],
     creator_id: Optional[int],
+    order_by: Optional[str],
+    order_direction: Optional[str],
     page: int,
     page_size: int,
 ) -> None:
@@ -1497,6 +1531,8 @@ def cloud_resource_search(
             begin_episode=begin_episode,
             end_episode=end_episode,
             creator_id=creator_id,
+            order_by=order_by.lower() if order_by else None,
+            order_direction=order_direction.lower() if order_direction else None,
             page=page,
             page_size=page_size,
         )

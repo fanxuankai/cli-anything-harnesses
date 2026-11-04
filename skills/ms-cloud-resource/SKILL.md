@@ -44,6 +44,8 @@ pip install cli-anything-ms
     - 季 -> `--season`
     - 单集 -> `--episode`
     - 集数范围 -> `--begin-episode` 和 `--end-episode`
+    - “按体积排序/找最大的” -> `--order-by size --order-direction desc`
+    - “看最新发布的” -> `--order-by pubdate --order-direction desc`
     - “前 N 个” -> `--page-size N`
 
 ## 展示结果
