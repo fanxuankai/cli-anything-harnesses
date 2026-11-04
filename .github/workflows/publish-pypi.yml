@@ -159,7 +159,7 @@ jobs:
 
       - name: Upload published package record
         if: ${{ steps.version.outputs.publish == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: published-package-${{ matrix.package }}
           path: ${{ runner.temp }}/published-package.json
