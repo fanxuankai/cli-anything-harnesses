@@ -51,6 +51,9 @@ MEDIA_SOURCE_LABELS = {
     1300: "Letterboxd",
 }
 
+# all 为跨源聚合搜索（/media/searchAll），其余为单源搜索（/media/search）
+MEDIA_SEARCH_SOURCE_CHOICES = tuple(sorted(MEDIA_SOURCE_MAP.keys())) + ("all",)
+
 
 class MediaManager:
     """Business-level helpers for media-related commands."""
@@ -75,6 +78,111 @@ class MediaManager:
         if not isinstance(response.data, dict):
             raise ValueError("Media search returned an unexpected response payload")
         return self._normalize_media_page(response.data)
+
+    def search_all(self, keyword: str, page: int, page_size: int) -> list[dict[str, Any]]:
+        """跨源聚合搜索。"""
+        response = self.client.request(
+            "GET",
+            "/api/v1/media/searchAll",
+            params={
+                "keyword": keyword,
+                "pageNum": str(page),
+                "pageSize": str(page_size),
+            },
+        )
+        if not response.ok:
+            message = response.message or f"Media search all failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if response.data is None:
+            return []
+        if not isinstance(response.data, list):
+            raise ValueError("Media search all returned an unexpected response payload")
+
+        groups = []
+        for group in response.data:
+            if not isinstance(group, dict):
+                continue
+            source_code = group.get("mediaSource")
+            entries = group.get("list") if isinstance(group.get("list"), list) else []
+            groups.append(
+                {
+                    "source": {
+                        "code": source_code,
+                        "name": MEDIA_SOURCE_LABELS.get(source_code, "" if source_code in (None, "") else str(source_code)),
+                    },
+                    "count": group.get("count") or len(entries),
+                    "list": [self._normalize_media_item(item) for item in entries],
+                }
+            )
+        return groups
+
+    def season_episodes(self, tmdb_id: int, season: int) -> list[dict[str, Any]]:
+        """查询指定季的集数信息。"""
+        if tmdb_id is None or tmdb_id <= 0:
+            raise ValueError("--tmdb-id is required")
+        if season is None or season <= 0:
+            raise ValueError("--season is required")
+
+        response = self.client.request(
+            "GET",
+            "/api/v1/media/seasonEpisodes",
+            params={
+                "tmdbId": str(tmdb_id),
+                "season": str(season),
+            },
+        )
+        if not response.ok:
+            message = response.message or f"Season episodes failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if response.data is None:
+            return []
+        if not isinstance(response.data, list):
+            raise ValueError("Season episodes returned an unexpected response payload")
+
+        episodes = []
+        for item in response.data:
+            if not isinstance(item, dict):
+                continue
+            episodes.append(
+                {
+                    "id": item.get("id"),
+                    "name": str(item.get("name", "") or ""),
+                    "overview": str(item.get("overview", "") or ""),
+                    "vote": item.get("vote"),
+                    "air_date": str(item.get("airDate", "") or ""),
+                    "episode_number": item.get("episodeNumber"),
+                    "season_number": item.get("seasonNumber"),
+                    "still": str(item.get("stillPath", "") or ""),
+                    "archived": bool(item.get("archived")),
+                }
+            )
+        return episodes
+
+    def person(self, person_id: int) -> dict[str, Any]:
+        """查询演员详情。"""
+        if person_id is None or person_id <= 0:
+            raise ValueError("--id is required")
+
+        response = self.client.request("GET", f"/api/v1/mediaPerson/detail/{person_id}")
+        if not response.ok:
+            message = response.message or f"Person detail failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if not isinstance(response.data, dict):
+            raise ValueError("Person detail returned an unexpected response payload")
+
+        data = response.data
+        return {
+            "id": data.get("id"),
+            "name": str(data.get("name", "") or ""),
+            "original_name": str(data.get("originalName", "") or ""),
+            "picture": str(data.get("picture", "") or ""),
+            "known_for_department": str(data.get("knownForDepartment", "") or ""),
+            "biography": str(data.get("biography", "") or ""),
+            "birthday": str(data.get("birthday", "") or ""),
+            "place_of_birth": str(data.get("placeOfBirth", "") or ""),
+            "also_known_as": [str(alias) for alias in data.get("alsoKnownAs") or [] if str(alias).strip()],
+            "profile": str(data.get("profile", "") or ""),
+        }
 
     def rank_sources(self) -> list[dict[str, Any]]:
         response = self.client.request("GET", "/api/v1/mediaSubject/mediaSources")

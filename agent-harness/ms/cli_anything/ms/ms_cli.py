@@ -27,7 +27,13 @@ from .core.cloud_resource import MEDIA_TYPE_CHOICES as CLOUD_RESOURCE_MEDIA_TYPE
 from .core.cloud_resource import CloudResourceManager
 from .core.download import MEDIA_TYPE_CHOICES as DOWNLOAD_MEDIA_TYPE_CHOICES
 from .core.download import DownloadManager
-from .core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
+from .core.media import (
+    MEDIA_RANK_SOURCE_MAP,
+    MEDIA_RECOMMEND_SOURCE_MAP,
+    MEDIA_SEARCH_SOURCE_CHOICES,
+    MEDIA_SOURCE_MAP,
+    MediaManager,
+)
 from .core.media_health import MEDIA_HEALTH_ISSUE_TYPE_CHOICES, MEDIA_HEALTH_STATUS_CHOICES, MediaHealthManager
 from .core.media_server import MEDIA_TYPE_CHOICES as MEDIA_SERVER_MEDIA_TYPE_CHOICES
 from .core.media_server import MediaServerManager
@@ -40,8 +46,11 @@ from .utils.output import (
     output_cloud_resource_download_site,
     output_cloud_resource_rank,
     output_cloud_resource_search,
+    output_calendar_airing_days,
+    output_calendar_airing_shows,
     output_calendar_ical_urls,
     output_calendar_list,
+    output_calendar_options,
     output_connection,
     output_download_history,
     output_download_operation,
@@ -57,7 +66,11 @@ from .utils.output import (
     output_media_recommend_items,
     output_media_recommend_options,
     output_media_recommend_sources,
+    output_media_search_all,
     output_media_search,
+    output_season_episodes,
+    output_person_detail,
+    output_media_search_all,
     output_media_health_detail,
     output_media_health_operation,
     output_media_health_page,
@@ -480,9 +493,9 @@ def media(ctx: Context) -> None:
 @media.command("search")
 @click.option(
     "--source",
-    type=click.Choice(sorted(MEDIA_SOURCE_MAP.keys()), case_sensitive=False),
+    type=click.Choice(MEDIA_SEARCH_SOURCE_CHOICES, case_sensitive=False),
     required=True,
-    help="Media source name",
+    help="Media source name. 'all' searches across sources",
 )
 @click.option("--keyword", required=True, help="Search keyword")
 @click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
@@ -504,17 +517,70 @@ def media_search(ctx: Context, source: str, keyword: str, page: int, page_size: 
             raise click.UsageError("--keyword cannot be empty")
 
         source_key = source.lower()
-        result = ctx.media_mgr.search(
-            source_code=MEDIA_SOURCE_MAP[source_key],
-            keyword=keyword.strip(),
-            page=page,
-            page_size=page_size,
-        )
+        if source_key == "all":
+            result = ctx.media_mgr.search_all(keyword=keyword.strip(), page=page, page_size=page_size)
+
+            if ctx.json_mode:
+                output_json(result)
+            else:
+                output_media_search_all(result)
+        else:
+            result = ctx.media_mgr.search(
+                source_code=MEDIA_SOURCE_MAP[source_key],
+                keyword=keyword.strip(),
+                page=page,
+                page_size=page_size,
+            )
+
+            if ctx.json_mode:
+                output_json(result)
+            else:
+                output_media_search(result, source=source_key, keyword=keyword)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media.command("season-episodes")
+@click.option("--tmdb-id", type=click.IntRange(min=1), required=True, help="TMDB ID")
+@click.option("--season", type=click.IntRange(min=1), required=True, help="Season number")
+@pass_ctx
+def media_season_episodes(ctx: Context, tmdb_id: int, season: int) -> None:
+    """查询指定季的集数信息。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_mgr.season_episodes(tmdb_id, season)
 
         if ctx.json_mode:
             output_json(result)
         else:
-            output_media_search(result, source=source_key, keyword=keyword)
+            output_season_episodes(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media.command("person")
+@click.option("--id", "person_id", type=click.IntRange(min=1), required=True, help="Person ID")
+@pass_ctx
+def media_person(ctx: Context, person_id: int) -> None:
+    """查看演员详情。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_mgr.person(person_id)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_person_detail(result)
     except SystemExit:
         raise
     except Exception as exc:
@@ -1316,6 +1382,98 @@ def calendar_ical_urls(ctx: Context) -> None:
             output_json(result)
         else:
             output_calendar_ical_urls(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@calendar.command("airing-types")
+@pass_ctx
+def calendar_airing_types(ctx: Context) -> None:
+    """查看全平台播出日历的媒体类型。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.calendar_mgr.airing_media_types()
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_calendar_options(result, "Calendar Media Types")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@calendar.command("airing-platforms")
+@click.option("--media-type", required=True, help="Media type from airing-types")
+@pass_ctx
+def calendar_airing_platforms(ctx: Context, media_type: str) -> None:
+    """查看全平台播出日历的平台。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.calendar_mgr.airing_platforms(media_type)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_calendar_options(result, "Calendar Platforms")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@calendar.command("airing-days")
+@click.option("--media-type", required=True, help="Media type from airing-types")
+@click.option("--platform", required=True, help="Platform from airing-platforms")
+@click.option("--days", type=click.IntRange(min=1), default=14, show_default=True, help="Day range")
+@click.option("--from", "from_date", help="Start date YYYY-MM-DD. Empty means today")
+@pass_ctx
+def calendar_airing_days(ctx: Context, media_type: str, platform: str, days: int, from_date: Optional[str]) -> None:
+    """查看全平台播出日历（按天的发布数量）。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.calendar_mgr.airing_days(media_type=media_type, platform=platform, from_date=from_date, days=days)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_calendar_airing_days(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@calendar.command("airing-shows")
+@click.option("--media-type", required=True, help="Media type from airing-types")
+@click.option("--platform", required=True, help="Platform from airing-platforms")
+@click.option("--date", "show_date", required=True, help="Show date YYYY-MM-DD")
+@pass_ctx
+def calendar_airing_shows(ctx: Context, media_type: str, platform: str, show_date: str) -> None:
+    """查看指定日期的全平台播出剧目。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.calendar_mgr.airing_shows(media_type=media_type, platform=platform, show_date=show_date)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_calendar_airing_shows(result)
     except SystemExit:
         raise
     except Exception as exc:

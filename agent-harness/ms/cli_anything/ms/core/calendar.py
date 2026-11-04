@@ -79,6 +79,150 @@ class CalendarManager:
             "empty_reason": str(response.data.get("emptyReason", "") or ""),
         }
 
+    def airing_media_types(self) -> list[dict[str, Any]]:
+        """获取全平台播出日历的媒体类型选项。"""
+        response = self.client.request("GET", "/api/v1/calendar/mediaTypes")
+        if not response.ok:
+            message = response.message or f"Calendar media types failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if not isinstance(response.data, list):
+            raise ValueError("Calendar media types returned an unexpected response payload")
+        return response.data
+
+    def airing_platforms(self, media_type: str) -> list[dict[str, Any]]:
+        """获取全平台播出日历的平台选项。"""
+        media_type = self._require_media_type(media_type)
+        response = self.client.request("GET", "/api/v1/calendar/platforms", params={"mediaType": media_type})
+        if not response.ok:
+            message = response.message or f"Calendar platforms failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if not isinstance(response.data, list):
+            raise ValueError("Calendar platforms returned an unexpected response payload")
+        return response.data
+
+    def airing_days(
+        self,
+        *,
+        media_type: str,
+        platform: str,
+        from_date: Optional[str] = None,
+        days: int = 14,
+    ) -> dict[str, Any]:
+        """查询全平台播出日历（按天的发布数量）。"""
+        media_type = self._require_media_type(media_type)
+        platform = self._require_platform(platform)
+        if days < 1:
+            raise ValueError("--days must be at least 1")
+
+        if from_date:
+            try:
+                start = datetime.strptime(from_date.strip(), "%Y-%m-%d")
+            except ValueError:
+                raise ValueError("--from must be YYYY-MM-DD")
+        else:
+            start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=days)
+
+        response = self.client.request(
+            "GET",
+            "/api/v1/calendar/calendar",
+            params={
+                "mediaType": media_type,
+                "platform": platform,
+                "beginDate": start.strftime("%Y-%m-%d"),
+                "endDate": end.strftime("%Y-%m-%d"),
+            },
+        )
+        if not response.ok:
+            message = response.message or f"Calendar airing days failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if response.data is None:
+            return {"start": start.strftime("%Y-%m-%d"), "days": days, "items": []}
+        if not isinstance(response.data, list):
+            raise ValueError("Calendar airing days returned an unexpected response payload")
+
+        items = []
+        for item in response.data:
+            if not isinstance(item, dict):
+                continue
+            items.append(
+                {
+                    "release_date": str(item.get("releaseDate", "") or ""),
+                    "release_count": item.get("releaseCount") or 0,
+                    "selected": bool(item.get("selected")),
+                }
+            )
+        return {"start": start.strftime("%Y-%m-%d"), "days": days, "items": items}
+
+    def airing_shows(self, *, media_type: str, platform: str, show_date: str) -> dict[str, Any]:
+        """查询指定日期的全平台播出剧目。"""
+        media_type = self._require_media_type(media_type)
+        platform = self._require_platform(platform)
+        try:
+            datetime.strptime(show_date.strip(), "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("--date must be YYYY-MM-DD")
+
+        response = self.client.request(
+            "GET",
+            "/api/v1/calendar/showPerDayList",
+            params={
+                "mediaType": media_type,
+                "platform": platform,
+                "showDate": show_date.strip(),
+            },
+        )
+        if not response.ok:
+            message = response.message or f"Calendar airing shows failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        if not isinstance(response.data, dict):
+            raise ValueError("Calendar airing shows returned an unexpected response payload")
+
+        days_raw = response.data.get("showPerDayList") or []
+        if not isinstance(days_raw, list):
+            days_raw = []
+        days = []
+        for day in days_raw:
+            if not isinstance(day, dict):
+                continue
+            media_list = day.get("mediaList") if isinstance(day.get("mediaList"), list) else []
+            days.append(
+                {
+                    "release_date": str(day.get("releaseDate", "") or ""),
+                    "scheduled": bool(day.get("scheduled")),
+                    "items": [self._normalize_show_item(item) for item in media_list if isinstance(item, dict)],
+                }
+            )
+        return {
+            "prev_date": str(response.data.get("prevQueryShowDate", "") or ""),
+            "next_date": str(response.data.get("nextQueryShowDate", "") or ""),
+            "days": days,
+        }
+
+    def _normalize_show_item(self, item: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": item.get("id"),
+            "title": str(item.get("title", "") or ""),
+            "subtitle": str(item.get("subtitle", "") or ""),
+            "media_type": str(item.get("type", "") or ""),
+            "year": item.get("year"),
+            "vote": item.get("vote"),
+            "poster": str(item.get("poster", "") or ""),
+            "overview": str(item.get("overview", "") or ""),
+        }
+
+    def _require_media_type(self, media_type: str) -> str:
+        media_type = (media_type or "").strip().lower()
+        if not media_type:
+            raise ValueError("--media-type is required")
+        return media_type
+
+    def _require_platform(self, platform: str) -> str:
+        platform = (platform or "").strip()
+        if not platform:
+            raise ValueError("--platform is required")
+        return platform
+
     def _normalize_item(self, item: Any) -> dict[str, Any]:
         if not isinstance(item, dict):
             item = {}

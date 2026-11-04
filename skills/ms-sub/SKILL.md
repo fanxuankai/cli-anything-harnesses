@@ -118,9 +118,33 @@ pip install cli-anything-ms
 - 执行后只说明操作已提交，不承诺后端已经完成。
 - 不做批量编辑、批量对齐默认配置、重新订阅这类管理操作。
 
+## 查季集与演员
+
+- 用户问「XX 第二季一共多少集」「更新到哪了」时执行：
+
+  ```bash
+  cli-anything-ms --json media season-episodes --tmdb-id <tmdb_id> --season <season>
+  ```
+
+  汇总说明总集数、各集播出日期，已入库的集数可以点明。tmdbId 优先用之前搜索结果里的 `media_id`。
+
+- 用户问「XX 还演过什么」且手头有演员编号时执行：
+
+  ```bash
+  cli-anything-ms --json media person --id <person_id>
+  ```
+
+  用自然中文介绍姓名、领域、代表作信息；没有演员编号时不要编造，说明需要从影片详情里获取。
+
 ## 注意事项
 
-- TMDB 是唯一搜索源，不要搜索豆瓣。
+- TMDB 搜不到时（国产综艺、冷门动漫等），提示用户可以全源搜索再试一次：
+
+  ```bash
+  cli-anything-ms --json media search --source all --keyword "<title>"
+  ```
+
+  全源结果按来源分组展示，让用户挑一个候选继续。
 - 用户是查看订阅列表时，优先走 `subscribe page`，不要先做 TMDB 搜索。
 - 用户只是想搜索时，不要自动进入订阅流程。
 - 如果一句话里有多个搜索、查看订阅或订阅意图，要逐个处理，并逐条返回结果。

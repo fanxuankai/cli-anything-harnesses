@@ -450,6 +450,102 @@ class TestMediaManager:
             },
         )
 
+    def test_search_all_uses_search_all_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[
+                {"mediaSource": 100, "count": 1, "list": [_raw_media_item(source=100, title="挽救计划")]},
+                {"mediaSource": 200, "count": 0, "list": []},
+            ],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = MediaManager(client).search_all(keyword="挽救计划", page=1, page_size=5)
+
+        assert len(result) == 2
+        assert result[0]["source"] == {"code": 100, "name": "豆瓣"}
+        assert result[0]["count"] == 1
+        assert result[0]["list"][0]["title"] == "挽救计划"
+        assert result[1]["count"] == 0
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/media/searchAll",
+            params={"keyword": "挽救计划", "pageNum": "1", "pageSize": "5"},
+        )
+
+    def test_season_episodes_uses_season_episodes_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=[
+                {
+                    "id": 1,
+                    "name": "第一集",
+                    "overview": "剧情",
+                    "vote": 8.0,
+                    "airDate": "2026-01-01",
+                    "episodeNumber": 1,
+                    "seasonNumber": 2,
+                    "stillPath": "https://example.test/still.jpg",
+                    "archived": True,
+                }
+            ],
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = MediaManager(client).season_episodes(95842, 2)
+
+        assert result[0]["name"] == "第一集"
+        assert result[0]["episode_number"] == 1
+        assert result[0]["air_date"] == "2026-01-01"
+        assert result[0]["archived"] is True
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/media/seasonEpisodes",
+            params={"tmdbId": "95842", "season": "2"},
+        )
+
+        with pytest.raises(ValueError, match="--season is required"):
+            MediaManager(MagicMock()).season_episodes(95842, 0)
+
+    def test_person_uses_person_detail_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={
+                "id": 88,
+                "name": "张三",
+                "originalName": "San Zhang",
+                "knownForDepartment": "Acting",
+                "biography": "演员简介",
+                "birthday": "1990-01-01",
+                "placeOfBirth": "北京",
+                "alsoKnownAs": ["三三"],
+                "profile": "https://themoviedb.org/person/88",
+            },
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = MediaManager(client).person(88)
+
+        assert result["name"] == "张三"
+        assert result["known_for_department"] == "Acting"
+        assert result["also_known_as"] == ["三三"]
+        client.request.assert_called_once_with("GET", "/api/v1/mediaPerson/detail/88")
+
     def test_rank_sources_uses_media_subject_media_sources_endpoint(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(
@@ -1068,6 +1164,64 @@ class TestCalendarManager:
     def test_list_rejects_bad_from_date(self):
         with pytest.raises(ValueError, match="--from must be YYYY-MM-DD"):
             CalendarManager(MagicMock()).list(from_date="11/05")
+
+    def test_airing_chain_uses_calendar_endpoints(self):
+        client = MagicMock()
+        client.request.side_effect = [
+            ApiResponse(status_code=200, ok=True, code=20000, message="SUCCESS", data=[{"value": "tv", "text": "电视剧"}], raw_body={}, is_standard_response=True),
+            ApiResponse(status_code=200, ok=True, code=20000, message="SUCCESS", data=[{"value": "all", "text": "全部平台"}], raw_body={}, is_standard_response=True),
+            ApiResponse(status_code=200, ok=True, code=20000, message="SUCCESS", data=[{"releaseCount": 3, "releaseDate": "2026-11-05", "selected": False}], raw_body={}, is_standard_response=True),
+            ApiResponse(
+                status_code=200,
+                ok=True,
+                code=20000,
+                message="SUCCESS",
+                data={
+                    "prevQueryShowDate": "2026-11-04",
+                    "nextQueryShowDate": "2026-11-06",
+                    "showPerDayList": [
+                        {"releaseDate": "2026-11-05", "scheduled": True, "mediaList": [{"id": "m1", "title": "新剧", "type": "tv", "year": 2026, "vote": 7.5}]}
+                    ],
+                },
+                raw_body={},
+                is_standard_response=True,
+            ),
+        ]
+
+        manager = CalendarManager(client)
+        assert manager.airing_media_types()[0]["value"] == "tv"
+        assert manager.airing_platforms("tv")[0]["value"] == "all"
+
+        days = manager.airing_days(media_type="tv", platform="all", from_date="2026-11-05", days=7)
+        assert days["items"][0]["release_count"] == 3
+        assert days["items"][0]["release_date"] == "2026-11-05"
+
+        shows = manager.airing_shows(media_type="tv", platform="all", show_date="2026-11-05")
+        assert shows["next_date"] == "2026-11-06"
+        assert shows["days"][0]["items"][0]["title"] == "新剧"
+
+        client.request.assert_any_call("GET", "/api/v1/calendar/mediaTypes")
+        client.request.assert_any_call("GET", "/api/v1/calendar/platforms", params={"mediaType": "tv"})
+        client.request.assert_any_call(
+            "GET",
+            "/api/v1/calendar/calendar",
+            params={"mediaType": "tv", "platform": "all", "beginDate": "2026-11-05", "endDate": "2026-11-12"},
+        )
+        client.request.assert_any_call(
+            "GET",
+            "/api/v1/calendar/showPerDayList",
+            params={"mediaType": "tv", "platform": "all", "showDate": "2026-11-05"},
+        )
+
+    def test_airing_validates_required_params(self):
+        manager = CalendarManager(MagicMock())
+
+        with pytest.raises(ValueError, match="--media-type is required"):
+            manager.airing_platforms("  ")
+        with pytest.raises(ValueError, match="--platform is required"):
+            manager.airing_days(media_type="tv", platform="")
+        with pytest.raises(ValueError, match="--date must be YYYY-MM-DD"):
+            manager.airing_shows(media_type="tv", platform="all", show_date="11/05")
 
     def test_ical_urls_uses_ical_urls_endpoint(self):
         client = MagicMock()

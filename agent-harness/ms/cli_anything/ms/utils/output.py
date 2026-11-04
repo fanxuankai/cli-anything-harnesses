@@ -846,6 +846,127 @@ def output_system_version(result: dict[str, Any]) -> None:
         console.print("[green]已是最新版本[/green]")
 
 
+def output_media_search_all(groups: list[dict[str, Any]]) -> None:
+    console.print("[bold]Media Search All[/bold]")
+    if not groups:
+        console.print("[dim](空)[/dim]")
+        return
+
+    for group in groups:
+        source = group.get("source") if isinstance(group.get("source"), dict) else {}
+        console.print(f"[cyan]{source.get('name', '')}[/cyan] ({group.get('count', 0)})")
+        for item in group.get("list") or []:
+            title = str(item.get("title", "") or "")
+            subtitle = str(item.get("subtitle", "") or "")
+            year = item.get("year")
+            header = title if year in (None, "") else f"{title} ({year})"
+            if subtitle:
+                header += f" [dim]{subtitle}[/dim]"
+            vote = item.get("vote")
+            vote_text = "" if vote in (None, "") else f" · {float(vote):.1f}"
+            media_type = str(item.get("media_type", "") or "")
+            console.print(f"  {header} [{media_type}]{vote_text}")
+
+
+def output_season_episodes(episodes: list[dict[str, Any]]) -> None:
+    console.print("[bold]Season Episodes[/bold]")
+    console.print(f"Total: {len(episodes)}")
+    if not episodes:
+        console.print("[dim](空)[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Episode", justify="right")
+    table.add_column("Name")
+    table.add_column("Air Date")
+    table.add_column("Vote")
+    table.add_column("In Library")
+    for item in episodes:
+        vote = item.get("vote")
+        table.add_row(
+            _text(item.get("episode_number")),
+            _text(item.get("name")),
+            _text(item.get("air_date")),
+            "-" if vote in (None, "") else f"{float(vote):.1f}",
+            "yes" if item.get("archived") else "no",
+        )
+    console.print(table)
+
+
+def output_person_detail(person: dict[str, Any]) -> None:
+    console.print("[bold]Person Detail[/bold]")
+    name = str(person.get("name", "") or "")
+    original = str(person.get("original_name", "") or "")
+    header = name if not original or original == name else f"{name} ({original})"
+    console.print(header)
+    if person.get("known_for_department"):
+        console.print(f"[cyan]领域[/cyan]: {person.get('known_for_department')}")
+    if person.get("birthday"):
+        console.print(f"[cyan]生日[/cyan]: {person.get('birthday')}")
+    if person.get("place_of_birth"):
+        console.print(f"[cyan]出生地[/cyan]: {person.get('place_of_birth')}")
+    aliases = person.get("also_known_as") or []
+    if aliases:
+        console.print(f"[cyan]别名[/cyan]: {', '.join(str(alias) for alias in aliases[:6])}")
+    biography = str(person.get("biography", "") or "")
+    if biography:
+        console.print(f"[cyan]简介[/cyan]: {biography[:400]}{'...' if len(biography) > 400 else ''}")
+    if person.get("profile"):
+        console.print(f"[cyan]档案[/cyan]: {person.get('profile')}")
+
+
+def output_calendar_options(items: list[dict[str, Any]], title: str) -> None:
+    console.print(f"[bold]{title}[/bold]")
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Value")
+    table.add_column("Text")
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        table.add_row(_text(item.get("value")), _text(item.get("text")))
+    console.print(table)
+
+
+def output_calendar_airing_days(result: dict[str, Any]) -> None:
+    console.print("[bold]Airing Calendar[/bold]")
+    console.print(f"[cyan]Start[/cyan]: {result.get('start', '')} / [cyan]Days[/cyan]: {result.get('days', '')}")
+    items = result.get("items") or []
+    if not items:
+        console.print("[dim](空)[/dim]")
+        return
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Date")
+    table.add_column("Count", justify="right")
+    for item in items:
+        table.add_row(_text(item.get("release_date")), _text(item.get("release_count")))
+    console.print(table)
+
+
+def output_calendar_airing_shows(result: dict[str, Any]) -> None:
+    console.print("[bold]Airing Shows[/bold]")
+    days = result.get("days") or []
+    if not days:
+        console.print("[dim](空)[/dim]")
+        return
+    for day in days:
+        date = str(day.get("release_date", "") or "")
+        items = day.get("items") or []
+        console.print(f"[cyan]{date}[/cyan] ({len(items)})")
+        for item in items:
+            title = str(item.get("title", "") or "")
+            subtitle = str(item.get("subtitle", "") or "")
+            year = item.get("year")
+            header = title if year in (None, "") else f"{title} ({year})"
+            if subtitle:
+                header += f" [dim]{subtitle}[/dim]"
+            vote = item.get("vote")
+            vote_text = "" if vote in (None, "") else f" · {float(vote):.1f}"
+            console.print(f"  {header}{vote_text}")
+
+
 def output_calendar_list(result: dict[str, Any]) -> None:
     console.print("[bold]Subscribe Calendar[/bold]")
     console.print(f"[cyan]Start[/cyan]: {result.get('start', '')} / [cyan]Days[/cyan]: {result.get('days', '')} / [cyan]Total[/cyan]: {result.get('total', 0)}")
