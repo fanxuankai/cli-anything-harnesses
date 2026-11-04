@@ -1,13 +1,13 @@
 ---
 name: ms-gap-filler
-description: 检查 ms 里的电视剧漏集，或者想把漏集电视剧转成订阅补齐时使用，例如“查漏集”“补漏集”“补前3个”“补猎罪图鉴”。
+description: 检查 ms 里的电视剧漏集，或者想把漏集转成订阅补齐时使用，例如“查漏集”“补漏集”“补前3个”“补猎罪图鉴”。
 ---
 
 # ms Gap Filler
 
 ## 概述
 
-通过本地 `cli-anything-ms` CLI 检查电视剧漏集，并在用户明确要补的时候，把缺集对应的剧和季重新加入订阅。
+通过本地 `cli-anything-ms` CLI 检查媒体库中的电视剧漏集，并在用户明确要补的时候，按后端决策把缺集并入订阅或新建订阅。
 
 ## 安装
 
@@ -23,7 +23,7 @@ pip install cli-anything-ms
 - `把前3个补一下`
 - `补猎罪图鉴`
 
-这个技能只处理电视剧，不处理电影。
+这个技能只处理漏集问题；漏集对应的问题类型是 `missing`，不处理未匹配、可升级、缺字幕等其他健康问题。
 
 ## 工作流
 
@@ -32,7 +32,7 @@ pip install cli-anything-ms
 无论用户是说“查漏集”还是直接说“补漏集”，都先执行：
 
 ```bash
-cli-anything-ms --json media-server miss-episodes-check
+cli-anything-ms --json media-health page --type missing --page 1 --page-size 20
 ```
 
 按 CLI 返回的原始顺序处理，不要自行按年份、标题或缺集数量重排。
@@ -58,38 +58,63 @@ cli-anything-ms --json media-server miss-episodes-check
 
 如果用户指定剧名，按标题近似匹配漏集列表里的项目；如果有多个相近候选，不要猜，先让用户确认具体是哪一个。
 
-### 4. 执行补订阅
+### 4. 先预览决策再执行
 
-补漏集的本质是补订阅，不做 TMDB 搜索，不走旧 `/dse`。
-直接使用漏集检查结果里的标题、年份和季数执行：
+对每个要补的剧，先对它的问题执行预览：
 
 ```bash
-cli-anything-ms --json subscribe add --type tv --name "<title>" --year <year> --season <season>
+cli-anything-ms --json media-health subscribe-missing-preview --issue-key <issue_key>
 ```
 
-规则如下：
+预览会告诉你要做什么，把决策翻译成人话告诉用户，例如：
 
-- 对每个选中的剧，遍历它的全部漏集季
-- 每个季执行一次 `subscribe add`
-- 如果同一剧有多个漏集季，默认全部补，不再逐季二次确认
-- 单条失败时继续执行后续条目，不因为一个失败中断全部
+- `create` → 这部剧还没有订阅，将新建订阅
+- `merge` → 这部剧已有订阅，把缺失的集并入现有订阅
+- `research` → 这部剧已有订阅，将重新触发搜索
+- `noop` → 无需处理，跳过
+
+预览里如果提示某些集已入库或已下载被剔除，也顺带告诉用户。
+
+用户确认后（或用户一开始就说“直接补”时），执行：
+
+```bash
+cli-anything-ms --json media-health subscribe-missing --issue-key <issue_key>
+```
+
+同一部剧只执行一次，不要按季拆成多次调用。单条失败时继续执行后续条目，不因为一个失败中断全部。
 
 ### 5. 返回结果
 
-执行前先用自然中文告诉用户将补哪些剧、哪些季。
+执行前先用自然中文告诉用户将补哪些剧、各自会怎么做（新建/并入/重新搜索）。
 
 执行后逐条返回结果，并给出最终汇总：
 
 - 成功多少条
 - 失败多少条
-- 哪些剧或季补成功
-- 哪些剧或季补失败，以及失败原因
+- 哪些剧补成功
+- 哪些剧失败，以及失败原因
 
-如果用户明确要求看原始返回，再补充 `miss-episodes-check` 或 `subscribe add` 的 JSON 结果。
+如果用户明确要求看原始返回，再补充 `media-health page` 或 `media-health subscribe-missing` 的 JSON 结果。
+
+## 忽略与恢复
+
+- 用户明确说“忽略这个问题”“别再提醒这部剧”时，执行：
+
+  ```bash
+  cli-anything-ms --json media-health ignore --issue-key <issue_key>
+  ```
+
+- 用户明确说“恢复”“取消忽略”时，执行：
+
+  ```bash
+  cli-anything-ms --json media-health restore --issue-key <issue_key>
+  ```
+
+- 用户只是查询漏集时，不要顺手忽略任何条目。
 
 ## 注意事项
 
-- 这个技能只处理电视剧，不处理电影。
-- 不要发明新的补漏集 CLI 子命令。
+- 这个技能只处理电视剧漏集，不处理电影，也不处理其他健康问题类型。
+- 不要发明新的补漏集 CLI 子命令；补漏集只有 preview 和执行两步。
 - “补前几个”始终按漏集结果的原始顺序取前 N 个剧。
 - 输出要先给用户可读摘要，不要展示字段名或 JSON 结构；只有用户明确要求原始返回时才展示。

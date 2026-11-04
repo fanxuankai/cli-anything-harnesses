@@ -19,6 +19,7 @@ from cli_anything.ms.core.client import ApiResponse, ConnectionConfig, MSClient
 from cli_anything.ms.core.cloud_resource import CloudResourceManager
 from cli_anything.ms.core.download import DownloadManager
 from cli_anything.ms.core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
+from cli_anything.ms.core.media_health import MediaHealthManager
 from cli_anything.ms.core.media_server import MediaServerManager
 from cli_anything.ms.core.site import SiteManager
 from cli_anything.ms.core.subscribe import SubscribeManager
@@ -875,67 +876,181 @@ class TestMediaServerManager:
         with pytest.raises(ValueError, match="Media server sync items returned an unexpected response payload"):
             MediaServerManager(client).sync_items(1)
 
-    def test_miss_episodes_check_uses_media_server_endpoint(self):
+class TestMediaHealthManager:
+
+    def test_page_uses_media_health_page_endpoint(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(
             status_code=200,
             ok=True,
             code=20000,
             message="SUCCESS",
-            data=[
-                {
-                    "tmdbId": 139797,
-                    "mediaType": "tv",
-                    "title": "猎罪图鉴",
-                    "year": 2022,
-                    "episodes": [
-                        {
-                            "season": 1,
-                            "totalEpisodes": 20,
-                            "missEpisodes": [7],
-                        }
-                    ],
-                }
-            ],
+            data={
+                "summary": {"missing": 2, "processing": 1, "unmatched": 0, "upgrade": 3, "ignored": 1, "subtitleMissing": 0},
+                "total": 2,
+                "pageNum": 1,
+                "pageSize": 20,
+                "list": [
+                    {
+                        "issueKey": "missing:139797:1",
+                        "issueType": "missing",
+                        "status": "active",
+                        "title": "猎罪图鉴",
+                        "year": 2022,
+                        "mediaType": "tv",
+                        "tmdbId": 139797,
+                        "mediaServerId": 1,
+                        "libraryName": "电视剧",
+                        "path": "/tv/猎罪图鉴",
+                        "seasons": [{"season": 1, "totalEpisodes": 20, "missingEpisodes": [7, 8, 9], "existingEpisodes": [1, 2]}],
+                        "subscribeId": 0,
+                        "updatedAt": 1777132907,
+                    }
+                ],
+            },
             raw_body={},
             is_standard_response=True,
         )
 
-        manager = MediaServerManager(client)
-        result = manager.miss_episodes_check()
+        result = MediaHealthManager(client).page(issue_type="missing", page=1, page_size=20)
 
-        assert result["total"] == 1
-        assert result["items"][0]["title"] == "猎罪图鉴"
-        client.request.assert_called_once_with("GET", "/api/v1/mediaServer/missEpisodesCheck")
+        assert result["summary"]["missing"] == 2
+        assert result["total"] == 2
+        item = result["list"][0]
+        assert item["issue_key"] == "missing:139797:1"
+        assert item["title"] == "猎罪图鉴"
+        assert item["seasons"][0]["missing_episodes"] == [7, 8, 9]
+        assert item["seasons"][0]["missing_text"] == "E7-9"
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/mediaHealth/page",
+            params={"pageNum": "1", "pageSize": "20", "issueType": "missing"},
+        )
 
-    def test_miss_episodes_check_limits_to_first_twenty_items(self):
+    def test_page_rejects_unknown_issue_type(self):
+        with pytest.raises(ValueError, match="--type must be one of"):
+            MediaHealthManager(MagicMock()).page(issue_type="bogus")
+
+    def test_detail_uses_media_health_detail_endpoint(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(
             status_code=200,
             ok=True,
             code=20000,
             message="SUCCESS",
-            data=[
-                {
-                    "tmdbId": idx,
-                    "mediaType": "tv",
-                    "title": f"title-{idx}",
-                    "year": 2020,
-                    "episodes": [],
-                }
-                for idx in range(25)
-            ],
+            data={
+                "issueKey": "missing:139797:1",
+                "issueType": "missing",
+                "title": "猎罪图鉴",
+                "year": 2022,
+                "mediaType": "tv",
+                "seasons": [{"season": 1, "totalEpisodes": 20, "missingEpisodes": [7], "existingEpisodes": []}],
+            },
             raw_body={},
             is_standard_response=True,
         )
 
-        manager = MediaServerManager(client)
-        result = manager.miss_episodes_check()
+        result = MediaHealthManager(client).detail("missing:139797:1")
 
-        assert result["total"] == 25
-        assert len(result["items"]) == 20
-        assert result["items"][0]["title"] == "title-0"
-        assert result["items"][-1]["title"] == "title-19"
+        assert result["issue_key"] == "missing:139797:1"
+        assert result["seasons"][0]["missing_text"] == "E7"
+        client.request.assert_called_once_with(
+            "GET",
+            "/api/v1/mediaHealth/detail",
+            params={"issueKey": "missing:139797:1"},
+        )
+
+    def test_subscribe_missing_preview_uses_preview_endpoint(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={
+                "action": "merge",
+                "season": 1,
+                "episodes": [7, 8],
+                "subscribeId": 66,
+                "subscribeStatus": 200,
+                "alreadyInLibrary": [9],
+                "alreadyDownloaded": [],
+            },
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = MediaHealthManager(client).subscribe_missing_preview("missing:139797:1")
+
+        assert result["action"] == "merge"
+        assert result["action_text"] == "并入现有订阅"
+        assert result["episodes_text"] == "E7-8"
+        assert result["subscribe_id"] == 66
+        assert result["already_in_library"] == [9]
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/mediaHealth/subscribeMissingPreview",
+            json_body={"issueKey": "missing:139797:1"},
+        )
+
+    def test_subscribe_missing_submits_and_skips_payload_normalization(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = MediaHealthManager(client).subscribe_missing("missing:139797:1")
+
+        assert result["status"] == "submitted"
+        assert result["action"] == "subscribeMissing"
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/mediaHealth/subscribeMissing",
+            json_body={"issueKey": "missing:139797:1"},
+        )
+
+    def test_ignore_and_restore_use_expected_endpoints(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = MediaHealthManager(client)
+        ignored = manager.ignore("missing:139797:1", note="暂不处理")
+        restored = manager.restore("missing:139797:1")
+
+        assert ignored["action"] == "ignore"
+        assert restored["action"] == "restore"
+        client.request.assert_any_call(
+            "POST",
+            "/api/v1/mediaHealth/ignore",
+            json_body={"issueKey": "missing:139797:1", "note": "暂不处理"},
+        )
+        client.request.assert_any_call(
+            "POST",
+            "/api/v1/mediaHealth/restore",
+            json_body={"issueKey": "missing:139797:1"},
+        )
+
+    def test_methods_reject_empty_issue_key(self):
+        manager = MediaHealthManager(MagicMock())
+
+        with pytest.raises(ValueError, match="--issue-key is required"):
+            manager.detail("   ")
+        with pytest.raises(ValueError, match="--issue-key is required"):
+            manager.subscribe_missing("")
 
 
 class TestSiteManager:
@@ -2742,30 +2857,34 @@ class TestCLI:
         assert result.exit_code != 0
         assert "--options must be a JSON object" in result.output
 
-    def test_media_server_miss_episodes_check_json(self, monkeypatch):
+    def test_media_health_page_command_json(self, monkeypatch):
         runner = CliRunner()
 
-        def fake_miss_episodes_check(self):
+        def fake_page(self, *, issue_type, status, title, media_server_id, page, page_size):
+            assert issue_type == "missing"
+            assert page == 1
+            assert page_size == 20
             return {
+                "summary": {"missing": 1, "processing": 0, "unmatched": 0, "upgrade": 0, "ignored": 0, "subtitle_missing": 0},
                 "total": 1,
-                "items": [
+                "pageNum": 1,
+                "pageSize": 20,
+                "list": [
                     {
-                        "tmdbId": 139797,
-                        "mediaType": "tv",
+                        "issue_key": "missing:139797:1",
+                        "issue_type": "missing",
+                        "status": "active",
                         "title": "猎罪图鉴",
                         "year": 2022,
-                        "episodes": [
-                            {
-                                "season": 1,
-                                "totalEpisodes": 20,
-                                "missEpisodes": [7],
-                            }
-                        ],
+                        "media_type": "tv",
+                        "tmdb_id": 139797,
+                        "seasons": [{"season": 1, "total_episodes": 20, "missing_episodes": [7], "existing_episodes": [], "missing_text": "E7"}],
+                        "library_name": "电视剧",
                     }
                 ],
             }
 
-        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", fake_miss_episodes_check)
+        monkeypatch.setattr(MediaHealthManager, "page", fake_page)
         result = runner.invoke(
             main,
             [
@@ -2774,16 +2893,45 @@ class TestCLI:
                 "--apikey",
                 "secret-key",
                 "--json",
-                "media-server",
-                "miss-episodes-check",
+                "media-health",
+                "page",
+                "--type",
+                "missing",
             ],
         )
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["total"] == 1
-        assert payload["items"][0]["title"] == "猎罪图鉴"
-        assert payload["items"][0]["episodes"][0]["missEpisodes"] == [7]
+        assert payload["list"][0]["issue_key"] == "missing:139797:1"
+        assert payload["list"][0]["seasons"][0]["missing_text"] == "E7"
+
+    def test_media_health_subscribe_missing_command_json(self, monkeypatch):
+        runner = CliRunner()
+
+        def fake_subscribe_missing(self, issue_key):
+            assert issue_key == "missing:139797:1"
+            return {"status": "submitted", "action": "subscribeMissing", "issue_key": issue_key, "message": "ok"}
+
+        monkeypatch.setattr(MediaHealthManager, "subscribe_missing", fake_subscribe_missing)
+        result = runner.invoke(
+            main,
+            [
+                "--url",
+                "http://localhost:8899",
+                "--apikey",
+                "secret-key",
+                "--json",
+                "media-health",
+                "subscribe-missing",
+                "--issue-key",
+                "missing:139797:1",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["status"] == "submitted"
 
     def test_media_server_list_command_json(self, monkeypatch):
         runner = CliRunner()
@@ -2947,30 +3095,31 @@ class TestCLI:
         assert payload["status"] == "submitted"
         assert payload["server_id"] == 1
 
-    def test_media_server_miss_episodes_check_human_output(self, monkeypatch):
+    def test_media_health_page_command_human_output(self, monkeypatch):
         runner = CliRunner()
 
-        def fake_miss_episodes_check(self):
+        def fake_page(self, *, issue_type, status, title, media_server_id, page, page_size):
             return {
+                "summary": {"missing": 1, "processing": 0, "unmatched": 0, "upgrade": 0, "ignored": 0, "subtitle_missing": 0},
                 "total": 1,
-                "items": [
+                "pageNum": 1,
+                "pageSize": 20,
+                "list": [
                     {
-                        "tmdbId": 68095,
-                        "mediaType": "tv",
-                        "title": "法医秦明",
-                        "year": 2016,
-                        "episodes": [
-                            {
-                                "season": 2,
-                                "totalEpisodes": 18,
-                                "missEpisodes": [5, 10, 12],
-                            }
-                        ],
+                        "issue_key": "missing:139797:1",
+                        "issue_type": "missing",
+                        "status": "active",
+                        "title": "猎罪图鉴",
+                        "year": 2022,
+                        "media_type": "tv",
+                        "tmdb_id": 139797,
+                        "seasons": [{"season": 1, "total_episodes": 20, "missing_episodes": [7], "existing_episodes": [], "missing_text": "E7"}],
+                        "library_name": "电视剧",
                     }
                 ],
             }
 
-        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", fake_miss_episodes_check)
+        monkeypatch.setattr(MediaHealthManager, "page", fake_page)
         result = runner.invoke(
             main,
             [
@@ -2978,21 +3127,32 @@ class TestCLI:
                 "http://localhost:8899",
                 "--apikey",
                 "secret-key",
-                "media-server",
-                "miss-episodes-check",
+                "media-health",
+                "page",
+                "--type",
+                "missing",
             ],
         )
 
         assert result.exit_code == 0
-        assert "Miss Episodes Check" in result.output
-        assert "Total: 1" in result.output
-        assert "法医秦明 (2016)" in result.output
-        assert "Season 2 / Total 18 / Missing: 5, 10, 12" in result.output
+        assert "Media Health" in result.output
+        assert "猎罪图鉴" in result.output
+        assert "S01 缺 E7" in result.output
 
-    def test_media_server_miss_episodes_check_empty_output(self, monkeypatch):
+    def test_media_health_page_command_empty_output(self, monkeypatch):
         runner = CliRunner()
 
-        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", lambda self: {"total": 0, "items": []})
+        monkeypatch.setattr(
+            MediaHealthManager,
+            "page",
+            lambda self, *, issue_type, status, title, media_server_id, page, page_size: {
+                "summary": {"missing": 0, "processing": 0, "unmatched": 0, "upgrade": 0, "ignored": 0, "subtitle_missing": 0},
+                "total": 0,
+                "pageNum": 1,
+                "pageSize": 20,
+                "list": [],
+            },
+        )
         result = runner.invoke(
             main,
             [
@@ -3000,62 +3160,21 @@ class TestCLI:
                 "http://localhost:8899",
                 "--apikey",
                 "secret-key",
-                "media-server",
-                "miss-episodes-check",
+                "media-health",
+                "page",
             ],
         )
 
         assert result.exit_code == 0
-        assert "Total: 0" in result.output
-        assert "✅ 无漏集" in result.output
+        assert "(空)" in result.output
 
-    def test_media_server_miss_episodes_check_truncates_long_missing_list(self, monkeypatch):
+    def test_media_health_page_surfaces_backend_error(self, monkeypatch):
         runner = CliRunner()
 
-        def fake_miss_episodes_check(self):
-            return {
-                "total": 25,
-                "items": [
-                    {
-                        "tmdbId": 69714,
-                        "mediaType": "tv",
-                        "title": "心理罪",
-                        "year": 2015,
-                        "episodes": [
-                            {
-                                "season": 1,
-                                "totalEpisodes": 2110,
-                                "missEpisodes": list(range(12, 40)),
-                            }
-                        ],
-                    }
-                ],
-            }
+        def fake_page(self, **kwargs):
+            raise ValueError("boom")
 
-        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", fake_miss_episodes_check)
-        result = runner.invoke(
-            main,
-            [
-                "--url",
-                "http://localhost:8899",
-                "--apikey",
-                "secret-key",
-                "media-server",
-                "miss-episodes-check",
-            ],
-        )
-
-        assert result.exit_code == 0
-        assert "Showing first 1 items" in result.output
-        assert "... (28 total)" in result.output
-
-    def test_media_server_miss_episodes_check_surfaces_backend_error(self, monkeypatch):
-        runner = CliRunner()
-
-        def fake_miss_episodes_check(self):
-            raise ValueError("404 page not found")
-
-        monkeypatch.setattr(MediaServerManager, "miss_episodes_check", fake_miss_episodes_check)
+        monkeypatch.setattr(MediaHealthManager, "page", fake_page)
         result = runner.invoke(
             main,
             [
@@ -3064,14 +3183,13 @@ class TestCLI:
                 "--apikey",
                 "secret-key",
                 "--json",
-                "media-server",
-                "miss-episodes-check",
+                "media-health",
+                "page",
             ],
         )
 
         assert result.exit_code != 0
-        payload = json.loads(result.output)
-        assert payload["error"] == "404 page not found"
+        assert json.loads(result.output) == {"error": "boom"}
 
     def test_site_list_command_json(self, monkeypatch):
         runner = CliRunner()

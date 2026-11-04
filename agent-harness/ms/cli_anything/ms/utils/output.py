@@ -660,34 +660,84 @@ def output_plugin_call(result: Any) -> None:
         console.print("[bold green]插件调用成功[/bold green]")
 
 
-def output_media_server_miss_episodes(result: dict[str, Any]) -> None:
-    console.print("[bold]Miss Episodes Check[/bold]")
+def output_media_health_page(result: dict[str, Any]) -> None:
+    console.print("[bold]Media Health[/bold]")
+    summary = result.get("summary") if isinstance(result.get("summary"), dict) else {}
+    summary_text = " / ".join(
+        f"{label} {summary.get(key, 0)}"
+        for key, label in (
+            ("missing", "缺集"),
+            ("unmatched", "未匹配"),
+            ("upgrade", "可升级"),
+            ("subtitle_missing", "缺字幕"),
+            ("processing", "处理中"),
+            ("ignored", "已忽略"),
+        )
+    )
+    console.print(f"[cyan]Summary[/cyan]: {summary_text}")
+    items = result.get("list") or []
+    console.print(
+        f"Page: {result.get('pageNum', 1)} / Page Size: {result.get('pageSize', len(items))} / Total: {result.get('total', 0)}"
+    )
+    _print_media_health_items(items)
 
-    total = int(result.get("total") or 0)
-    items = result.get("items") or []
 
-    console.print(f"Total: {total}")
+def output_media_health_detail(item: dict[str, Any]) -> None:
+    console.print("[bold]Media Health Detail[/bold]")
+    _print_media_health_items([item])
 
+
+def output_media_health_preview(result: dict[str, Any]) -> None:
+    console.print("[bold]Subscribe Missing Preview[/bold]")
+    console.print(f"[cyan]Action[/cyan]: {result.get('action_text', '')} ({result.get('action', '')})")
+    console.print(f"[cyan]Season[/cyan]: {result.get('season', '')}")
+    console.print(f"[cyan]Episodes[/cyan]: {result.get('episodes_text', '')}")
+    subscribe_id = result.get("subscribe_id")
+    if subscribe_id:
+        console.print(f"[cyan]Subscribe ID[/cyan]: {subscribe_id}")
+    already_in_library = result.get("already_in_library") or []
+    already_downloaded = result.get("already_downloaded") or []
+    if already_in_library:
+        console.print(f"[cyan]已入库被剔除[/cyan]: {', '.join(str(ep) for ep in already_in_library)}")
+    if already_downloaded:
+        console.print(f"[cyan]已下载被剔除[/cyan]: {', '.join(str(ep) for ep in already_downloaded)}")
+
+
+def output_media_health_operation(result: dict[str, Any]) -> None:
+    console.print(f"[bold green]媒体健康操作 {result.get('action', '')} 已提交[/bold green]")
+    console.print(f"Issue Key: {result.get('issue_key', '')}")
+    if result.get("message"):
+        console.print(f"Message: {result.get('message')}")
+
+
+def _print_media_health_items(items: list[dict[str, Any]]) -> None:
     if not items:
-        console.print("[green]✅ 无漏集[/green]")
+        console.print("[dim](空)[/dim]")
         return
 
-    if total > len(items):
-        console.print(f"Showing first {len(items)} items")
-
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Title")
+    table.add_column("Type")
+    table.add_column("Status")
+    table.add_column("Seasons")
+    table.add_column("Library")
+    table.add_column("Issue Key")
     for item in items:
-        title = str(item.get("title", "") or "")
-        year = item.get("year")
-        header = title if year in (None, "") else f"{title} ({year})"
-        console.print(f"[cyan]{header}[/cyan]")
-
-        episodes = item.get("episodes") or []
-        for season_item in episodes:
-            season = season_item.get("season", "")
-            total = season_item.get("totalEpisodes", "")
-            missing = season_item.get("missEpisodes") or []
-            missing_text = _format_missing_episodes(missing)
-            console.print(f"  Season {season} / Total {total} / Missing: {missing_text}")
+        seasons = item.get("seasons") if isinstance(item.get("seasons"), list) else []
+        season_text = "\n".join(
+            f"S{season.get('season', 0):02d} 缺 {season.get('missing_text', '-')}"
+            for season in seasons
+            if isinstance(season, dict)
+        )
+        table.add_row(
+            _text(item.get("title")),
+            _text(item.get("issue_type")),
+            _text(item.get("status")),
+            season_text,
+            _text(item.get("library_name")),
+            _text(item.get("issue_key")),
+        )
+    console.print(table)
 
 
 def output_media_server_list(result: dict[str, Any]) -> None:
@@ -1070,13 +1120,6 @@ def output_download_operation(result: dict[str, Any]) -> None:
     console.print(f"Download ID: {result.get('download_id', '')}")
     if result.get("message"):
         console.print(f"Message: {result.get('message')}")
-
-
-def _format_missing_episodes(episodes: list[Any], limit: int = 20) -> str:
-    normalized = [str(item) for item in episodes]
-    if len(normalized) <= limit:
-        return ", ".join(normalized)
-    return f"{', '.join(normalized[:limit])} ... ({len(normalized)} total)"
 
 
 def _text(value: Any) -> str:

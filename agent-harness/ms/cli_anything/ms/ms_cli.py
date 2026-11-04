@@ -20,6 +20,7 @@ from .core.cloud_resource import CloudResourceManager
 from .core.download import MEDIA_TYPE_CHOICES as DOWNLOAD_MEDIA_TYPE_CHOICES
 from .core.download import DownloadManager
 from .core.media import MEDIA_RANK_SOURCE_MAP, MEDIA_RECOMMEND_SOURCE_MAP, MEDIA_SOURCE_MAP, MediaManager
+from .core.media_health import MEDIA_HEALTH_ISSUE_TYPE_CHOICES, MEDIA_HEALTH_STATUS_CHOICES, MediaHealthManager
 from .core.media_server import MEDIA_TYPE_CHOICES as MEDIA_SERVER_MEDIA_TYPE_CHOICES
 from .core.media_server import MediaServerManager
 from .core.site import SITE_SWITCH_TYPE_CHOICES, SiteManager
@@ -46,11 +47,14 @@ from .utils.output import (
     output_media_recommend_options,
     output_media_recommend_sources,
     output_media_search,
+    output_media_health_detail,
+    output_media_health_operation,
+    output_media_health_page,
+    output_media_health_preview,
     output_media_server_detail,
     output_media_server_libraries,
     output_media_server_list,
     output_media_server_media_items,
-    output_media_server_miss_episodes,
     output_media_server_statistics,
     output_media_server_sync_items,
     output_media_server_sync_run,
@@ -79,6 +83,7 @@ class Context:
         self.client: Optional[MSClient] = None
         self._media_mgr: Optional[MediaManager] = None
         self._media_server_mgr: Optional[MediaServerManager] = None
+        self._media_health_mgr: Optional[MediaHealthManager] = None
         self._site_mgr: Optional[SiteManager] = None
         self._subscribe_mgr: Optional[SubscribeManager] = None
         self._cloud_resource_mgr: Optional[CloudResourceManager] = None
@@ -90,6 +95,7 @@ class Context:
         self.client = MSClient(self.conn)
         self._media_mgr = None
         self._media_server_mgr = None
+        self._media_health_mgr = None
         self._site_mgr = None
         self._subscribe_mgr = None
         self._cloud_resource_mgr = None
@@ -111,6 +117,14 @@ class Context:
         if self._media_server_mgr is None:
             self._media_server_mgr = MediaServerManager(self.client)
         return self._media_server_mgr
+
+    @property
+    def media_health_mgr(self) -> MediaHealthManager:
+        if self.client is None:
+            raise ValueError("Client is not initialized")
+        if self._media_health_mgr is None:
+            self._media_health_mgr = MediaHealthManager(self.client)
+        return self._media_health_mgr
 
     @property
     def site_mgr(self) -> SiteManager:
@@ -898,21 +912,195 @@ def media_server_sync_run(ctx: Context, server_id: int) -> None:
         handle_error(ctx, exc)
 
 
-@media_server.command("miss-episodes-check")
+@media_server.command("sync-run")
+@click.option("--id", "server_id", type=click.IntRange(min=1), required=True, help="Media server ID")
 @pass_ctx
-def media_server_miss_episodes_check(ctx: Context) -> None:
-    """检查媒体服务中的电视剧漏集情况。"""
+def media_server_sync_run(ctx: Context, server_id: int) -> None:
+    """发起媒体服务器同步任务。"""
     try:
         if ctx.conn is None:
             raise ValueError("Connection state is unavailable")
         ctx.conn.require_configured()
 
-        result = ctx.media_server_mgr.miss_episodes_check()
+        result = ctx.media_server_mgr.sync_run(server_id)
 
         if ctx.json_mode:
             output_json(result)
         else:
-            output_media_server_miss_episodes(result)
+            output_media_server_sync_run(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+#
+# media-health 命令组
+#
+
+
+@main.group("media-health")
+@pass_ctx
+def media_health(ctx: Context) -> None:
+    """媒体健康检查命令。"""
+
+
+@media_health.command("page")
+@click.option(
+    "--type",
+    "issue_type",
+    type=click.Choice(MEDIA_HEALTH_ISSUE_TYPE_CHOICES, case_sensitive=False),
+    help="Issue type filter",
+)
+@click.option(
+    "--status",
+    type=click.Choice(MEDIA_HEALTH_STATUS_CHOICES, case_sensitive=False),
+    help="Issue status filter",
+)
+@click.option("--title", help="Title filter")
+@click.option("--media-server-id", type=click.IntRange(min=1), help="Media server ID filter")
+@click.option("--page", type=click.IntRange(min=1), default=1, show_default=True, help="Page number")
+@click.option("--page-size", type=click.IntRange(min=1), default=20, show_default=True, help="Page size")
+@pass_ctx
+def media_health_page(
+    ctx: Context,
+    issue_type: Optional[str],
+    status: Optional[str],
+    title: Optional[str],
+    media_server_id: Optional[int],
+    page: int,
+    page_size: int,
+) -> None:
+    """分页查询媒体健康问题。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_health_mgr.page(
+            issue_type=issue_type.lower() if issue_type else None,
+            status=status.lower() if status else None,
+            title=title,
+            media_server_id=media_server_id,
+            page=page,
+            page_size=page_size,
+        )
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_health_page(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_health.command("detail")
+@click.option("--issue-key", required=True, help="Issue key from media health page")
+@pass_ctx
+def media_health_detail(ctx: Context, issue_key: str) -> None:
+    """查看媒体健康问题详情。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_health_mgr.detail(issue_key)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_health_detail(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_health.command("subscribe-missing-preview")
+@click.option("--issue-key", required=True, help="Issue key from media health page")
+@pass_ctx
+def media_health_subscribe_missing_preview(ctx: Context, issue_key: str) -> None:
+    """预览补漏集订阅决策（不执行）。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_health_mgr.subscribe_missing_preview(issue_key)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_health_preview(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_health.command("subscribe-missing")
+@click.option("--issue-key", required=True, help="Issue key from media health page")
+@pass_ctx
+def media_health_subscribe_missing(ctx: Context, issue_key: str) -> None:
+    """按决策执行补漏集订阅。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_health_mgr.subscribe_missing(issue_key)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_health_operation(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_health.command("ignore")
+@click.option("--issue-key", required=True, help="Issue key from media health page")
+@click.option("--note", help="Optional note")
+@pass_ctx
+def media_health_ignore(ctx: Context, issue_key: str, note: Optional[str]) -> None:
+    """忽略媒体健康问题。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_health_mgr.ignore(issue_key, note=note)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_health_operation(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@media_health.command("restore")
+@click.option("--issue-key", required=True, help="Issue key from media health page")
+@pass_ctx
+def media_health_restore(ctx: Context, issue_key: str) -> None:
+    """恢复已忽略的媒体健康问题。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        result = ctx.media_health_mgr.restore(issue_key)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_media_health_operation(result)
     except SystemExit:
         raise
     except Exception as exc:

@@ -117,11 +117,11 @@ class TestCLIHelp:
         assert result.returncode == 0
         assert "--options" in result.stdout
 
-    def test_media_server_miss_episodes_check_help(self):
-        result = _cli("media-server", "miss-episodes-check", "--help")
+    def test_media_health_page_help(self):
+        result = _cli("media-health", "page", "--help")
 
         assert result.returncode == 0
-        assert "miss-episodes-check" in result.stdout
+        assert "--issue-key" in result.stdout or "media-health" in result.stdout
 
     def test_system_nas_info_help(self):
         result = _cli("system", "nas-info", "--help")
@@ -245,6 +245,7 @@ class TestConfigPersistence:
 
     def test_save_connection(self):
         with tempfile.TemporaryDirectory() as tmpdir:
+            # Windows 的 Path.home() 读 USERPROFILE，Linux/macOS 读 HOME，两者都要覆盖
             result = _cli(
                 "config",
                 "save-connection",
@@ -252,7 +253,7 @@ class TestConfigPersistence:
                 "http://localhost:8899",
                 "--apikey",
                 "secret-key",
-                env={"HOME": tmpdir},
+                env={"HOME": tmpdir, "USERPROFILE": tmpdir},
             )
 
             assert result.returncode == 0
@@ -540,21 +541,21 @@ class TestLiveServer:
             assert "error" in payload
 
     @skip_no_server
-    def test_media_server_miss_episodes_check(self):
+    def test_media_health_page(self):
         args = ["--json"]
         if MS_URL:
             args.extend(["--url", MS_URL])
         if MS_API_KEY:
             args.extend(["--apikey", MS_API_KEY])
-        args.extend(["media-server", "miss-episodes-check"])
+        args.extend(["media-health", "page", "--type", "missing"])
         result = _cli(*args)
 
         assert result.returncode in {0, 1}
         payload = json.loads(result.stdout)
         if result.returncode == 0:
             assert isinstance(payload, dict)
-            assert "total" in payload
-            assert "items" in payload
+            assert "summary" in payload
+            assert "list" in payload
         else:
             assert "error" in payload
 

@@ -18,7 +18,7 @@
 - `MediaManager.search` 的来源映射和 query 拼装
 - `MediaManager.rank_sources/rank_categories/rank_subjects/rank_items` 的路径访问与参数拼装
 - `MediaManager.recommend_sources/recommend_channels/recommend_options/recommend_items` 的路径访问与参数拼装
-- `MediaServerManager.miss_episodes_check` 的路径访问与输出格式
+- `MediaHealthManager.page/detail/subscribe_missing_preview/subscribe_missing/ignore/restore` 的路径访问、参数校验与 normalize
 - `plugin call` 的 JSON 解析、请求路径和输出格式
 - `SubscribeManager.get_default_config` 的 detail 路径访问
 - `SubscribeManager.page` 的 page 路径访问与参数拼装
@@ -54,7 +54,7 @@ pytest cli_anything/ms/tests/test_core.py -v
 - `cli-anything-ms media recommend options --help`
 - `cli-anything-ms media recommend items --help`
 - `cli-anything-ms system nas-info --help`
-- `cli-anything-ms media-server miss-episodes-check --help`
+- `cli-anything-ms media-health page --help`
 - `cli-anything-ms plugin call --help`
 - `cli-anything-ms subscribe page --help`
 - `cli-anything-ms subscribe add --help`
@@ -106,7 +106,7 @@ cli-anything-ms --json system nas-info
 ```
 
 ```bash
-cli-anything-ms --json media-server miss-episodes-check
+cli-anything-ms --json media-health page --type missing
 ```
 
 ```bash

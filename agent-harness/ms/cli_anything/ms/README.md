@@ -166,10 +166,11 @@ cli-anything-ms media-server sync-run --id 1
 
 `sync-run` 只提交同步任务，不等待同步完成。
 
-检查媒体服务中的电视剧漏集：
+检查媒体健康问题（缺集/未匹配/可升级/缺字幕）：
 
 ```bash
-cli-anything-ms media-server miss-episodes-check
+cli-anything-ms --json media-health page --type missing
+cli-anything-ms --json media-health subscribe-missing --issue-key <issue_key>
 ```
 
 JSON 输出：
@@ -447,7 +448,12 @@ cli-anything-ms --json plugin call --code zspace_service_assistant --body '{"act
 - `media-server latest`
 - `media-server resume`
 - `media-server sync-run`
-- `media-server miss-episodes-check`
+- `media-health page`
+- `media-health detail`
+- `media-health subscribe-missing-preview`
+- `media-health subscribe-missing`
+- `media-health ignore`
+- `media-health restore`
 - `site list`
 - `site data total`
 - `site data latest`
