@@ -1,3 +1,5 @@
+
+
 # CLI Anything Harnesses
 
 [![GitHub release](https://img.shields.io/github/v/release/fanxuankai/cli-anything-harnesses?sort=semver&display_name=tag)](https://github.com/fanxuankai/cli-anything-harnesses/releases)
@@ -64,6 +66,8 @@ GITHUB_TOKEN=你的 Github PAT
 ```
 
 ## Local Development
+
+需要 Python 3.9 及以上版本。
 
 从源码安装两个 harness：
 
