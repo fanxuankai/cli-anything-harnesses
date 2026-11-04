@@ -1773,6 +1773,60 @@ class TestCloudResourceManager:
         assert result["list"][0]["downloadable"] is False
         assert result["list"][0]["download_request"] is None
 
+    def test_site_torrent_item_builds_site_download_request(self):
+        raw = _raw_cloud_resource_item(linkType=100, csHashId=None, siteId=7, enclosure="magnet:?xt=urn:btih:ABC")
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data={"total": 1, "pageNum": 1, "pageSize": 25, "list": [raw]},
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        result = CloudResourceManager(client).search(keyword="庆余年")
+
+        item = result["list"][0]
+        assert item["downloadable"] is True
+        assert item["download_request"]["siteId"] == 7
+        assert item["download_request"]["torrent"] == raw
+
+    def test_submit_site_download_posts_site_resource_payload(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=20000,
+            message="SUCCESS",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+        torrent = {"title": "庆余年 S01E46", "enclosure": "magnet:?xt=urn:btih:ABC", "linkType": 110}
+
+        result = CloudResourceManager(client).submit_site_download({"siteId": 7, "torrent": torrent})
+
+        assert result["status"] == "submitted"
+        assert result["site_id"] == 7
+        assert result["title"] == "庆余年 S01E46"
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/download/siteResource",
+            json_body={"siteId": 7, "torrents": [torrent]},
+        )
+
+    def test_submit_site_download_rejects_invalid_request(self):
+        manager = CloudResourceManager(MagicMock())
+
+        with pytest.raises(ValueError, match="siteId is required"):
+            manager.submit_site_download({"torrent": {"title": "x"}})
+        with pytest.raises(ValueError, match="torrent must be the raw torrent object"):
+            manager.submit_site_download({"siteId": 7, "torrent": None})
+        with pytest.raises(ValueError, match="must be a JSON object"):
+            manager.submit_site_download("not-a-dict")
+
     def test_submit_download_posts_use_payload_for_offline_download(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(

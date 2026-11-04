@@ -31,6 +31,8 @@ ACTION_BY_LINK_TYPE = {
 }
 MATERIAL_TYPE_CHOICES = ("ed2k", "123_fast_link")
 ACTION_CHOICES = ("offline_download", "share_receive", "copy_link")
+# 站点种子链路：100 PT 走站点下载通道，110 磁力走 BT 直链
+SITE_DOWNLOADABLE_LINK_TYPES = (100, 110)
 CLOUD_TASK_STATE_CHOICES = ("undone", "done")
 CLOUD_TASK_TYPE_CHOICES = ("upload", "download", "shareReceive", "copy")
 CLOUD_TASK_STATE_LABELS = {
@@ -131,6 +133,31 @@ class CloudResourceManager:
         return {
             "status": "submitted",
             "items": normalized,
+            "message": response.message,
+        }
+
+    def submit_site_download(self, request: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(request, dict):
+            raise ValueError("--request must be a JSON object")
+        site_id = self._to_int(request.get("siteId"))
+        if site_id is None:
+            raise ValueError("--request.siteId is required")
+        torrent = request.get("torrent")
+        if not isinstance(torrent, dict) or not torrent:
+            raise ValueError("--request.torrent must be the raw torrent object from search result")
+
+        response = self.client.request(
+            "POST",
+            "/api/v1/download/siteResource",
+            json_body={"siteId": site_id, "torrents": [torrent]},
+        )
+        if not response.ok:
+            message = response.message or f"Site torrent download failed with HTTP {response.status_code}"
+            raise ValueError(message)
+        return {
+            "status": "submitted",
+            "site_id": site_id,
+            "title": str(torrent.get("title", "") or ""),
             "message": response.message,
         }
 
@@ -283,6 +310,11 @@ class CloudResourceManager:
             normalized["download_request"] = self._build_cloud_download_request(
                 link_type=link_type, cs_hash_id=cs_hash_id, capabilities=capabilities
             )
+        elif link_type in SITE_DOWNLOADABLE_LINK_TYPES:
+            site_id = self._to_int(item.get("siteId"))
+            if site_id is not None:
+                # 站点种子直下需回传完整原始条目，后端按 LinkType 分流 BT/PT 通道
+                normalized["download_request"] = {"siteId": site_id, "torrent": item}
         normalized["downloadable"] = normalized["download_request"] is not None
         return normalized
 

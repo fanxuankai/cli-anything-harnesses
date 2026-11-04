@@ -37,6 +37,7 @@ from .core.subscribe import SubscribeManager
 from .core.system import SystemManager
 from .utils.output import (
     output_cloud_resource_download,
+    output_cloud_resource_download_site,
     output_cloud_resource_rank,
     output_cloud_resource_search,
     output_calendar_ical_urls,
@@ -1728,6 +1729,29 @@ def cloud_resource_download(ctx: Context, request_json: str, dir_path: Optional[
             output_json(result)
         else:
             output_cloud_resource_download(result)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        handle_error(ctx, exc)
+
+
+@cloud_resource.command("download-site")
+@click.option("--request", "request_json", required=True, help="Download request JSON from site torrent search result")
+@pass_ctx
+def cloud_resource_download_site(ctx: Context, request_json: str) -> None:
+    """提交站点种子下载任务（搜索结果里的站点种子条目）。"""
+    try:
+        if ctx.conn is None:
+            raise ValueError("Connection state is unavailable")
+        ctx.conn.require_configured()
+
+        request = _parse_json_object_option(request_json, "--request")
+        result = ctx.cloud_resource_mgr.submit_site_download(request)
+
+        if ctx.json_mode:
+            output_json(result)
+        else:
+            output_cloud_resource_download_site(result)
     except SystemExit:
         raise
     except Exception as exc:

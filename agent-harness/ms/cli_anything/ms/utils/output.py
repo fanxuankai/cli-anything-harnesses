@@ -435,6 +435,16 @@ def output_cloud_resource_download(result: dict[str, Any]) -> None:
         console.print("[dim]任务已提交，进度请用 cloud-resource tasks 查询[/dim]")
 
 
+def output_cloud_resource_download_site(result: dict[str, Any]) -> None:
+    console.print("[bold green]站点种子下载任务已提交[/bold green]")
+    console.print(f"Site ID: {result.get('site_id', '')}")
+    if result.get("title"):
+        console.print(f"Title: {result.get('title')}")
+    if result.get("message"):
+        console.print(f"Message: {result.get('message')}")
+    console.print("[dim]任务已提交，进度请用 download downloading 查询[/dim]")
+
+
 def output_cloud_resource_tasks(result: dict[str, Any]) -> None:
     console.print("[bold]Cloud Storage Tasks[/bold]")
     items = result.get("list") or []

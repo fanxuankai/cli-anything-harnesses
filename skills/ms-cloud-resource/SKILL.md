@@ -59,27 +59,37 @@ pip install cli-anything-ms
 
 - 只有用户明确说“下载”“转存”“添加云下载”“保存到云盘”时，才提交下载。
 - 下载前必须基于本轮或刚刚明确的搜索结果，让用户选中具体资源；不要凭标题重新拼下载请求。
-- 执行：
+- 结果里的资源分两类，用不同的命令提交：
+    - 网盘资源（云分享/云下载），执行：
 
-  ```bash
-  cli-anything-ms --json cloud-resource download --request '<download_request_json>'
-  ```
+      ```bash
+      cli-anything-ms --json cloud-resource download --request '<download_request_json>'
+      ```
 
-- 如果用户指定保存目录，追加：
+    - 站点种子（PT/磁力），执行：
+
+      ```bash
+      cli-anything-ms --json cloud-resource download-site --request '<download_request_json>'
+      ```
+
+  两者的 `download_request` 都直接取自选中条目，不要混用两条命令。
+- 如果用户指定云存储保存目录，给云资源命令追加：
 
   ```bash
   --dir "<cloud_storage_dir>"
   ```
 
-- 云分享资源提交后是转存任务，云下载资源提交后是离线下载任务。
+- 云分享资源提交后是转存任务，云下载资源提交后是离线下载任务，站点种子提交后进入下载器。
 - 下载命令只表示任务已提交，不代表资源已经下载或转存完成。
-- 用户追问“下载好了吗”“转存完成没”时，查任务进度：
+- 用户追问“下载好了吗”“转存完成没”时，按资源类型查进度：
+    - 网盘资源查云存储任务：
 
-  ```bash
-  cli-anything-ms --json cloud-resource tasks --state undone
-  ```
+      ```bash
+      cli-anything-ms --json cloud-resource tasks --state undone
+      ```
 
-  用户问的是已完成的任务时改用 `--state done`。回复时说明任务名、状态、进度百分比；失败的要点名并转述原因。
+      用户问的是已完成的任务时改用 `--state done`。回复时说明任务名、状态、进度百分比；失败的要点名并转述原因。
+    - 站点种子查下载任务，交给 `ms-download` 处理。
 - 如果下载失败，清楚转述 CLI 返回的失败原因，例如资源不支持该使用方式、额度不足等。
 
 ## 注意事项
