@@ -60,17 +60,19 @@ pip install cli-anything-ms
     - 电影
 
       ```bash
-      cli-anything-ms --json subscribe add --type movie --name "<title>" --year <year>
+      cli-anything-ms --json subscribe add --type movie --name "<title>" --year <year> --tmdb-id <media_id>
       ```
 
     - 电视剧
 
       ```bash
-      cli-anything-ms --json subscribe add --type tv --name "<title>" --year <year> --season <season>
+      cli-anything-ms --json subscribe add --type tv --name "<title>" --year <year> --season <season> --tmdb-id <media_id>
       ```
 
+- `--tmdb-id` 使用 TMDB 搜索结果里的 `media_id`，能帮后端更准确地识别，不要省略。
 - 如果用户没有明确指定电视剧季数，默认使用第 `1` 季。
 - 调用新增订阅时，优先使用 TMDB 搜索结果里的规范片名和年份。
+- 筛选器、下载器、保存目录等细节配置不需要关心，后端会按订阅默认设置自动处理。
 - 成功新增后，统一回复 `✅ 订阅成功`。
 
 ### 查看订阅
@@ -100,8 +102,6 @@ pip install cli-anything-ms
 - TMDB 是唯一搜索源，不要搜索豆瓣。
 - 用户是查看订阅列表时，优先走 `subscribe page`，不要先做 TMDB 搜索。
 - 用户只是想搜索时，不要自动进入订阅流程。
-- 不要暴露或提及 `subscribe config`；`subscribe add` 内部已经会处理默认配置。
 - 如果一句话里有多个搜索、查看订阅或订阅意图，要逐个处理，并逐条返回结果。
-- 订阅前不要只看是否已订阅，还要一起考虑是否已入库。
-- 新增订阅时，优先使用 TMDB 结果里的规范片名和年份。
+- 新增订阅时，优先使用 TMDB 结果里的规范片名和年份，并透传 `media_id`。
 - 如果新增失败，例如后端识别失败或业务校验失败，要清楚转述失败原因，不要误报成功。

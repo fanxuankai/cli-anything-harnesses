@@ -182,12 +182,12 @@ cli-anything-ms --json media-server sync-items --id 1 --page 1 --page-size 20
 
 ## 订阅新增
 
-`subscribe add` 会在内部自动读取对应的默认订阅配置，然后再提交新增请求。
+`subscribe add` 只提交最小信息（片名/类型/年份/季数），筛选器、下载器等衍生配置由后端订阅默认配置在运行时自动兜底。TMDB 搜索结果里的 `media_id` 可通过 `--tmdb-id` 透传，减少后端二次识别。
 
 最小新增订阅：
 
 ```bash
-cli-anything-ms subscribe add --type movie --name "Interstellar" --year 2014
+cli-anything-ms subscribe add --type movie --name "Interstellar" --year 2014 --tmdb-id 1889243
 ```
 
 ```bash
@@ -197,7 +197,7 @@ cli-anything-ms subscribe add --type tv --name "Breaking Bad" --year 2008 --seas
 JSON 输出：
 
 ```bash
-cli-anything-ms --json subscribe add --type movie --name "Interstellar" --year 2014
+cli-anything-ms --json subscribe add --type movie --name "Interstellar" --year 2014 --tmdb-id 1889243
 ```
 
 ## 订阅分页

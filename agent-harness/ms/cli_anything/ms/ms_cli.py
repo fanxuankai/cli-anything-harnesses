@@ -1643,6 +1643,7 @@ def subscribe(ctx: Context) -> None:
 @click.option("--name", required=True, help="Subscribe title")
 @click.option("--year", type=click.IntRange(min=1), required=True, help="Release year")
 @click.option("--season", type=click.IntRange(min=1), help="Season number for TV subscriptions")
+@click.option("--tmdb-id", type=click.IntRange(min=1), help="TMDB ID from media search result")
 @pass_ctx
 def subscribe_add(
     ctx: Context,
@@ -1650,6 +1651,7 @@ def subscribe_add(
     name: str,
     year: int,
     season: Optional[int],
+    tmdb_id: Optional[int],
 ) -> None:
     """使用默认配置新增最小电影或电视剧订阅。"""
     try:
@@ -1671,6 +1673,7 @@ def subscribe_add(
             media_type=media_type,
             year=year,
             season=season,
+            tmdb_id=tmdb_id,
         )
 
         if ctx.json_mode:

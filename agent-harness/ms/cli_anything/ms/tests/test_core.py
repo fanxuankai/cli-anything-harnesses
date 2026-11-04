@@ -1705,71 +1705,85 @@ class TestCloudResourceManager:
 
 class TestSubscribeManager:
 
-    def test_get_default_config_uses_detail_endpoint(self):
+    def test_add_posts_minimal_payload_and_backend_fills_defaults(self):
         client = MagicMock()
         client.request.return_value = ApiResponse(
             status_code=200,
             ok=True,
             code=0,
             message="success",
-            data={"type": "movie", "downloaderId": 1},
-            raw_body={"code": 0, "message": "success", "data": {"type": "movie", "downloaderId": 1}},
+            data=None,
+            raw_body={"code": 0, "message": "success", "data": None},
             is_standard_response=True,
         )
-
-        manager = SubscribeManager(client)
-        result = manager.get_default_config("movie")
-
-        assert result == {"type": "movie", "downloaderId": 1}
-        client.request.assert_called_once_with("GET", "/api/v1/subscribeDefaultConfig/detail/movie")
-
-    def test_add_fetches_default_config_then_saves(self):
-        client = MagicMock()
-        client.request.side_effect = [
-            ApiResponse(
-                status_code=200,
-                ok=True,
-                code=0,
-                message="success",
-                data={
-                    "type": "tv",
-                    "filterRuleId": 10,
-                    "torrentSortId": 20,
-                    "downloaderId": 1,
-                    "downloaderParamsId": 2,
-                    "downloaderDirectoryId": 3,
-                    "rssSites": [11],
-                    "searchSites": [22],
-                    "autoUpdateTotalEpisode": True,
-                    "include": "HDR",
-                    "exclude": "CAM",
-                    "subCloudStorage": False,
-                    "subCloudStoragePath": "/cloud",
-                    "csCreatorIds": "1,2",
-                    "mediums": ["BluRay"],
-                },
-                raw_body={},
-                is_standard_response=True,
-            ),
-            ApiResponse(
-                status_code=200,
-                ok=True,
-                code=0,
-                message="success",
-                data=None,
-                raw_body={"code": 0, "message": "success", "data": None},
-                is_standard_response=True,
-            ),
-        ]
 
         manager = SubscribeManager(client)
         result = manager.add(name="Breaking Bad", media_type="tv", year=2008, season=1)
 
         assert result["status"] == "ok"
-        assert result["subscribe"]["season"] == 1
-        assert result["subscribe"]["filterRuleId"] == 10
-        assert "mediums" not in result["subscribe"]
-        assert client.request.call_args_list[1].kwargs["json_body"]["searchSites"] == [22]
+        assert result["subscribe"] == {"name": "Breaking Bad", "type": "tv", "year": 2008, "season": 1}
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/subscribe/save",
+            json_body={"name": "Breaking Bad", "type": "tv", "year": 2008, "season": 1},
+        )
+
+    def test_add_passes_tmdb_id_when_provided(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=0,
+            message="success",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        manager = SubscribeManager(client)
+        result = manager.add(name="庆余年", media_type="tv", year=2019, season=1, tmdb_id=95842)
+
+        assert result["subscribe"]["tmdbId"] == 95842
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/subscribe/save",
+            json_body={"name": "庆余年", "type": "tv", "year": 2019, "season": 1, "tmdbId": 95842},
+        )
+
+    def test_add_movie_defaults_season_to_one_and_rejects_season(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=True,
+            code=0,
+            message="success",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        SubscribeManager(client).add(name="Interstellar", media_type="movie", year=2014)
+
+        client.request.assert_called_once_with(
+            "POST",
+            "/api/v1/subscribe/save",
+            json_body={"name": "Interstellar", "type": "movie", "year": 2014},
+        )
+
+    def test_add_surfaces_backend_error(self):
+        client = MagicMock()
+        client.request.return_value = ApiResponse(
+            status_code=200,
+            ok=False,
+            code=50000,
+            message="识别失败",
+            data=None,
+            raw_body={},
+            is_standard_response=True,
+        )
+
+        with pytest.raises(ValueError, match="识别失败"):
+            SubscribeManager(client).add(name="Unknown", media_type="movie", year=2020)
 
     def test_page_uses_subscribe_page_endpoint(self):
         client = MagicMock()
@@ -3750,7 +3764,7 @@ class TestCLI:
     def test_subscribe_add_json(self, monkeypatch):
         runner = CliRunner()
 
-        def fake_add(self, name, media_type, year, season):
+        def fake_add(self, name, media_type, year, season, *, tmdb_id=None):
             assert media_type == "movie"
             assert name == "Interstellar"
             assert year == 2014
@@ -3792,7 +3806,7 @@ class TestCLI:
     def test_subscribe_add_tv_defaults_season(self, monkeypatch):
         runner = CliRunner()
 
-        def fake_add(self, name, media_type, year, season):
+        def fake_add(self, name, media_type, year, season, *, tmdb_id=None):
             assert media_type == "tv"
             assert season == 1
             return {

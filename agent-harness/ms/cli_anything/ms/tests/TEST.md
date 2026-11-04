@@ -20,9 +20,8 @@
 - `MediaManager.recommend_sources/recommend_channels/recommend_options/recommend_items` 的路径访问与参数拼装
 - `MediaHealthManager.page/detail/subscribe_missing_preview/subscribe_missing/ignore/restore` 的路径访问、参数校验与 normalize
 - `plugin call` 的 JSON 解析、请求路径和输出格式
-- `SubscribeManager.get_default_config` 的 detail 路径访问
 - `SubscribeManager.page` 的 page 路径访问与参数拼装
-- `SubscribeManager.add` 的默认配置合并与 save 请求
+- `SubscribeManager.add` 的最小 payload 与 tmdbId 透传（默认配置由后端运行时兜底）
 - `ApiResponse` 对标准 `code/message/data` 的解包
 - 非标准响应的保留
 - `media search` 的 JSON 输出、人类可读表格输出、空结果和参数校验
