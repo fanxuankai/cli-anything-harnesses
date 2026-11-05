@@ -4,7 +4,7 @@ from setuptools import find_namespace_packages, setup
 setup(
     name="cli-anything-ms",
     version="0.12.0",
-    description="CLI harness for ms backend",
+    description="CLI harness for ms backend",  # 0.12+ 接口需 media-saber 后端 ≥ 2026-11 版本
     packages=find_namespace_packages(include=["cli_anything.*"]),
     python_requires=">=3.9",
     install_requires=[

@@ -46,6 +46,7 @@ from .utils.output import (
     output_cloud_resource_download_site,
     output_cloud_resource_rank,
     output_cloud_resource_search,
+    output_cloud_resource_tasks,
     output_calendar_airing_days,
     output_calendar_airing_shows,
     output_calendar_ical_urls,
